@@ -26,6 +26,8 @@ const { store, sendMoneyQueue, allowWithdrawalSet }: {
     allowWithdrawalSet: { [s: string]: true },
 } = require('../state.json');
 
+let nonce = undefined;
+
 const PROVIDER = new zksync.Provider(process.env.ZKS_PROVIDER_URL || "https://stage2-api.zksync.dev/web3");
 const WALLET = new zksync.Wallet(process.env.SECRET_KEY).connect(PROVIDER);
 
@@ -59,14 +61,20 @@ app.post('/ask_money', async (req, res) => {
         if (! /^0x([0-9a-fA-F]){40}$/.test(tokenAddress)) {
             return res.send('Error: invalid token address');
         }
-
+        if (nonce == undefined) {
+            nonce = await WALLET.getNonce();
+        }
+        
         const transfer = await WALLET.transfer({
             to: receiverAddress,
             token: tokenAddress,
             amount: getTokenAmount(tokenAddress),
-            feeToken: "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE"
+            feeToken: "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE",
+            nonce: nonce
         });
-
+        
+        nonce += 1;
+        
         console.log(`Transferred funds to ${receiverAddress}`);
 
         return res.send(transfer.hash);
