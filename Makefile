@@ -1,4 +1,4 @@
-export DOCKER_IMAGE ?=matterlabs/faucet
+export DOCKER_IMAGE ?=matterlabs/faucet:2.0
 
 image:
 	@yarn tsc
