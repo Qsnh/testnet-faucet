@@ -26,8 +26,8 @@ const { store, sendMoneyQueue, allowWithdrawalSet }: {
     allowWithdrawalSet: { [s: string]: true },
 } = require('../state.json');
 
-const PROVIDER = new zksync.Provider(process.env.ZKS_PROVIDER_URL);
-const WALLET = new zksync.Wallet(process.env.ETH_PRIVATE_KEY).connect(PROVIDER);
+const PROVIDER = new zksync.Provider(process.env.ZKS_PROVIDER_URL || "https://stage2-api.zksync.dev/web3");
+const WALLET = new zksync.Wallet(process.env.SECRET_KEY).connect(PROVIDER);
 
 function getTokenAmount(tokenAddress: string) {
     if (tokenAddress.toLowerCase() == "0x7457fc3f89ac99837d44f60B7860691fb2f09Bf5") { // wBTC
