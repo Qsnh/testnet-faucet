@@ -1,163 +1,74 @@
 import express from 'express';
 import bodyParser from 'body-parser';
-import * as zksync from 'zksync';
-import * as ethers from 'ethers';
-import { sleep } from 'zksync/build/utils';
+import * as zksync from 'zksync-web3';
 import * as fs from 'fs';
-import {parseEther} from "ethers/lib/utils";
+import cors from 'cors';
 
 const port = 2880;
 
 const app: express.Application = express();
 app.use(bodyParser.json());
-// app.use(express.urlencoded({ extended: true }));
+
+const corsOptions = {
+   origin:'*', 
+   credentials:true,            //access-control-allow-credentials:true
+   optionSuccessStatus:200,
+};
+app.use(cors(corsOptions));
 
 // Load state from state.json
 // store is a map from tickets to addresses
 // queue is a queue of tickets
 const { store, sendMoneyQueue, allowWithdrawalSet }: { 
     store: { [s: string]: { address?: string, name?: string, id_str?: string } },
-    sendMoneyQueue: string[],
+    sendMoneyQueue: { receiverAddress?: string, tokenAddress?: string}[],
     allowWithdrawalSet: { [s: string]: true },
-    // usedAddresses: { [s: string]: true },
 } = require('../state.json');
+
+const PROVIDER = new zksync.Provider(process.env.ZKS_PROVIDER_URL);
+const WALLET = new zksync.Wallet(process.env.ETH_PRIVATE_KEY).connect(PROVIDER);
 
 app.post('/ask_money', async (req, res) => {
     try {
-        let address = req.body['address'];
+        const receiverAddress = req.body['receiverAddress']?.trim()?.toLowerCase();
+        const tokenAddress = req.body['tokenAddress']?.trim()?.toLowerCase();
     
-        if (address == undefined) {
-            return res.send('Error: missing address');
+        if (receiverAddress == undefined) {
+            return res.send('Error: missing receiver address');
         }
 
-        address = address.trim().toLowerCase();
-
-        if (! /^0x([0-9a-fA-F]){40}$/.test(address)) {
-            return res.send('Error: invalid zkSync address');
+        if (tokenAddress == undefined) {
+            return res.send('Error: missing token address');
         }
 
-        sendMoneyQueue.push(address);
+        if (! /^0x([0-9a-fA-F]){40}$/.test(receiverAddress)) {
+            return res.send('Error: invalid receiver address');
+        }
 
-        res.send("Success");
+        if (! /^0x([0-9a-fA-F]){40}$/.test(tokenAddress)) {
+            return res.send('Error: invalid token address');
+        }
+
+        const transfer = await WALLET.transfer({
+            to: receiverAddress,
+            token: tokenAddress,
+            amount: 100,
+            feeToken: "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE"
+        });
+
+        console.log(`Transferred funds to ${receiverAddress}`);
+
+        return res.send(transfer.hash);
     } catch (e) {
         console.error("Error in ask_money:", e);
         return res.send("Error: internal error");
     }
 });
 
-app.get('/is_withdraw_allowed/:address', async (req, res) => {
-    return res.send(true);
-})
-
-app.get('/register_address/:address/:salt', async (req, res) => {
-    try {
-        return res.send("Success");
-    } catch (e) {
-        console.error("Error in register_address:", e);
-        return res.send("Error: internal error");
-    }
-});
-
-
-async function startSendingMoneyFragile(): Promise<void> {
-    const syncProvider = await zksync.Provider.newHttpProvider(process.env.HTTP_RPC_API_ADDR);
-
-    const ethWallet = new ethers.Wallet(process.env.ETH_PRIVATE_KEY);
-    const syncWallet = await zksync.Wallet.fromEthSigner(ethWallet, syncProvider);
-
-    if (! await syncWallet.isSigningKeySet()) {
-        const setSigningKey = await syncWallet.setSigningKey({ feeToken: "MLTT" });
-        await setSigningKey.awaitReceipt();
-        console.log("Signing key is set");
-    }
-
-
-    const amounts = [
-        {
-            token: "DAI",
-            amount: syncProvider.tokenSet.parseToken("DAI", "100"),
-        },
-        {
-            token: "BAT",
-            amount: syncProvider.tokenSet.parseToken("BAT", "100"),
-        },
-        {
-            token: "MLTT",
-            amount: syncProvider.tokenSet.parseToken("MLTT", "100"),
-        },
-    ];
-    if (process.env.ETH_NETWORK=="rinkeby") {
-        amounts.push({
-            token: "USDC",
-            amount: syncProvider.tokenSet.parseToken("USDC", "100"),
-        })
-        amounts.push({
-            token: "USDT",
-            amount: syncProvider.tokenSet.parseToken("USDT", "100"),
-        });
-    }
-
-
-    console.log(`Starting sending money from ${syncWallet.address()}`);
-    for (const { token } of amounts) {
-        console.log(`Sync balance for ${token}: ${await syncWallet.getBalance(token)}`);
-    }
-
-    while (true) {
-        if (sendMoneyQueue.length === 0) {
-            await sleep(100);
-            continue;
-        }
-
-        const address = sendMoneyQueue[0];
-
-        const hashes = [];
-        for (const { token, amount } of amounts) {
-            const transfer = await syncWallet.syncTransfer({
-                to: address,
-                token,
-                amount
-            });
-
-            await transfer.awaitReceipt();
-            hashes.push(transfer.txHash);
-        }
-
-        // usedAddresses[address] = true;
-        sendMoneyQueue.shift();
-        console.log(`Transfered funds to ${address}`);
-    }
-}
-
-async function startSendingMoney() {
-    let delay = 1000;
-    let startTime;
-    while (true) {
-        try {
-            startTime = Date.now();
-            await startSendingMoneyFragile();
-        } catch (e) {
-            const runningTime = Date.now() - startTime;
-
-            if (runningTime < 60000) {
-                delay = Math.min(delay * 2, 600000);
-            } else {
-                delay = 1000;
-            }
-
-            console.error(`Error in startSending money:`, e);
-
-            await sleep(delay);
-        }
-    }
-}
-
 // Start API
 app.listen(port, () => console.log(`App listening at http://localhost:${port}`));
 
-startSendingMoney();
-
-process.stdin.resume(); //so the program will not close instantly
+process.stdin.resume(); // Program will not close instantly
 
 function exitHandler(options, exitCode) {
     if (options.cleanup) {
