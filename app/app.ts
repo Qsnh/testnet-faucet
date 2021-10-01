@@ -1,6 +1,7 @@
 import express from 'express';
 import bodyParser from 'body-parser';
 import * as zksync from 'zksync-web3';
+import { BigNumber } from 'ethers';
 import * as fs from 'fs';
 import cors from 'cors';
 
@@ -28,6 +29,16 @@ const { store, sendMoneyQueue, allowWithdrawalSet }: {
 const PROVIDER = new zksync.Provider(process.env.ZKS_PROVIDER_URL);
 const WALLET = new zksync.Wallet(process.env.ETH_PRIVATE_KEY).connect(PROVIDER);
 
+function getTokenAmount(tokenAddress: string) {
+    if (tokenAddress.toLowerCase() == "0x7457fc3f89ac99837d44f60B7860691fb2f09Bf5") { // wBTC
+        return BigNumber.from(10).pow(6); // 0.01
+    } else if(tokenAddress.toLowerCase() == "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee") { // ETH
+        return BigNumber.from(10).pow(17); // 0.1
+    } else { // DAI
+        return (BigNumber.from(10).pow(18)).mul(300); // 300
+    }
+}
+
 app.post('/ask_money', async (req, res) => {
     try {
         const receiverAddress = req.body['receiverAddress']?.trim()?.toLowerCase();
@@ -52,7 +63,7 @@ app.post('/ask_money', async (req, res) => {
         const transfer = await WALLET.transfer({
             to: receiverAddress,
             token: tokenAddress,
-            amount: 100,
+            amount: getTokenAmount(tokenAddress),
             feeToken: "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE"
         });
 
