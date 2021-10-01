@@ -33,7 +33,7 @@ function getTokenAmount(tokenAddress: string) {
     if (tokenAddress.toLowerCase() == "0x7457fc3f89ac99837d44f60B7860691fb2f09Bf5") { // wBTC
         return BigNumber.from(10).pow(6); // 0.01
     } else if(tokenAddress.toLowerCase() == "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee") { // ETH
-        return BigNumber.from(10).pow(17); // 0.1
+        return BigNumber.from(10).pow(11); // 0.0000001
     } else { // DAI
         return (BigNumber.from(10).pow(18)).mul(300); // 300
     }
