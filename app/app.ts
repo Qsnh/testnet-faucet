@@ -32,7 +32,7 @@ const PROVIDER = new zksync.Provider(process.env.ZKS_PROVIDER_URL || "https://st
 const WALLET = new zksync.Wallet(process.env.SECRET_KEY, PROVIDER);
 
 function getTokenAmount(tokenAddress: string) {
-    if (tokenAddress.toLowerCase() == "0x7457fc3f89ac99837d44f60B7860691fb2f09Bf5") { // wBTC
+    if (tokenAddress.toLowerCase() == "0x7457fc3f89ac99837d44f60b7860691fb2f09bf5") { // wBTC
         return BigNumber.from(10).pow(6); // 0.01
     } else if(tokenAddress.toLowerCase() == "0xd2084ea2ae4bbe1424e4fe3cde25b713632fb988") { // BAT
         return (BigNumber.from(10).pow(18)).mul(3000); // 3000
@@ -44,6 +44,10 @@ function getTokenAmount(tokenAddress: string) {
 }
 
 app.post('/ask_money', async (req, res) => {
+    if (nonce == undefined) {
+        nonce = await WALLET.getNonce();
+    }
+
     try {
         const receiverAddress = req.body['receiverAddress']?.trim()?.toLowerCase();
         const tokenAddress = req.body['tokenAddress']?.trim()?.toLowerCase();
@@ -62,9 +66,6 @@ app.post('/ask_money', async (req, res) => {
 
         if (! /^0x([0-9a-fA-F]){40}$/.test(tokenAddress)) {
             return res.send('Error: invalid token address');
-        }
-        if (nonce == undefined) {
-            nonce = await WALLET.getNonce();
         }
         
         const transfer = await WALLET.transfer({
