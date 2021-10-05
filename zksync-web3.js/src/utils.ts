@@ -1,5 +1,15 @@
-import { utils, constants } from 'ethers';
-import { CommonData, Transfer, Withdraw, MigrateToPorter, Execute, DeployContract, Address } from './types';
+import { utils, constants, ethers } from 'ethers';
+import { isBytesLike } from 'ethers/lib/utils';
+import {
+    CommonData,
+    Transfer,
+    Withdraw,
+    MigrateToPorter,
+    Execute,
+    DeployContract,
+    Address,
+    DeployContractRequest
+} from './types';
 export { calldataBytes, parseCalldata } from './calldata';
 
 export const MIN_TIMESTAMP = 0;
@@ -16,7 +26,7 @@ export const IERC20 = new utils.Interface(require('../abi/IERC20.json').abi);
 export const EMPTY_SIGNATURE = new Uint8Array(65);
 
 export const RECOMMENDED_GAS_LIMIT = {
-    ETH_DEPOSIT: 90_000,
+    ETH_DEPOSIT: 120_000,
     ERC20_DEPOSIT: require('../misc/DepositERC20GasLimits.json'),
     ERC20_DEFAULT_DEPOSIT: 300_000,
     ADD_TOKEN: 120_000
@@ -82,4 +92,10 @@ export namespace serialize {
         tx.bytecode,
         tx.calldata ?? defaultCalldata()
     ]);
+}
+
+export function isDeployContractRequest(
+    request: ethers.providers.TransactionRequest
+): request is DeployContractRequest {
+    return isBytesLike(request['bytecode']) && (request['accountType'] === 0 || request['accountType'] === 1);
 }

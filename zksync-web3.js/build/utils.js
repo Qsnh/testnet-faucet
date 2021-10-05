@@ -1,7 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.serialize = exports.defaultCalldata = exports.sleep = exports.isETH = exports.RECOMMENDED_GAS_LIMIT = exports.EMPTY_SIGNATURE = exports.IERC20 = exports.ZKSYNC_MAIN_ABI = exports.ZKSYNC_WEB3_ABI = exports.ETH_ADDRESS = exports.MAX_TIMESTAMP = exports.MIN_TIMESTAMP = exports.parseCalldata = exports.calldataBytes = void 0;
+exports.isDeployContractRequest = exports.serialize = exports.defaultCalldata = exports.sleep = exports.isETH = exports.RECOMMENDED_GAS_LIMIT = exports.EMPTY_SIGNATURE = exports.IERC20 = exports.ZKSYNC_MAIN_ABI = exports.ZKSYNC_WEB3_ABI = exports.ETH_ADDRESS = exports.MAX_TIMESTAMP = exports.MIN_TIMESTAMP = exports.parseCalldata = exports.calldataBytes = void 0;
 const ethers_1 = require("ethers");
+const utils_1 = require("ethers/lib/utils");
 var calldata_1 = require("./calldata");
 Object.defineProperty(exports, "calldataBytes", { enumerable: true, get: function () { return calldata_1.calldataBytes; } });
 Object.defineProperty(exports, "parseCalldata", { enumerable: true, get: function () { return calldata_1.parseCalldata; } });
@@ -16,7 +17,7 @@ exports.ZKSYNC_MAIN_ABI = new ethers_1.utils.Interface(require('../abi/ZkSync.js
 exports.IERC20 = new ethers_1.utils.Interface(require('../abi/IERC20.json').abi);
 exports.EMPTY_SIGNATURE = new Uint8Array(65);
 exports.RECOMMENDED_GAS_LIMIT = {
-    ETH_DEPOSIT: 90000,
+    ETH_DEPOSIT: 120000,
     ERC20_DEPOSIT: require('../misc/DepositERC20GasLimits.json'),
     ERC20_DEFAULT_DEPOSIT: 300000,
     ADD_TOKEN: 120000
@@ -81,3 +82,7 @@ var serialize;
         ];
     });
 })(serialize = exports.serialize || (exports.serialize = {}));
+function isDeployContractRequest(request) {
+    return utils_1.isBytesLike(request['bytecode']) && (request['accountType'] === 0 || request['accountType'] === 1);
+}
+exports.isDeployContractRequest = isDeployContractRequest;

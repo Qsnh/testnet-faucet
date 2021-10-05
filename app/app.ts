@@ -1,7 +1,7 @@
 import express from 'express';
 import bodyParser from 'body-parser';
 import * as zksync from 'zksync-web3';
-import { BigNumber } from 'ethers';
+import { BigNumber, ethers } from 'ethers';
 import * as fs from 'fs';
 import cors from 'cors';
 
@@ -29,7 +29,7 @@ const { store, sendMoneyQueue, allowWithdrawalSet }: {
 let nonce = undefined;
 
 const PROVIDER = new zksync.Provider(process.env.ZKS_PROVIDER_URL || "https://stage2-api.zksync.dev/web3");
-const WALLET = new zksync.Wallet(process.env.SECRET_KEY).connect(PROVIDER);
+const WALLET = new zksync.Wallet(process.env.SECRET_KEY, PROVIDER);
 
 function getTokenAmount(tokenAddress: string) {
     if (tokenAddress.toLowerCase() == "0x7457fc3f89ac99837d44f60B7860691fb2f09Bf5") { // wBTC

@@ -23,7 +23,7 @@
           "type": "uint32"
         }
       ],
-      "name": "BlockVerification",
+      "name": "BlockExecution",
       "type": "event"
     },
     {
@@ -43,68 +43,6 @@
         }
       ],
       "name": "BlocksRevert",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "address",
-          "name": "zkSyncTokenAddress",
-          "type": "address"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "amount",
-          "type": "uint256"
-        }
-      ],
-      "name": "Deposit",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "uint32",
-          "name": "zkSyncBlockId",
-          "type": "uint32"
-        },
-        {
-          "indexed": true,
-          "internalType": "uint32",
-          "name": "accountId",
-          "type": "uint32"
-        },
-        {
-          "indexed": false,
-          "internalType": "address",
-          "name": "owner",
-          "type": "address"
-        },
-        {
-          "indexed": true,
-          "internalType": "address",
-          "name": "zkSyncTokenAddress",
-          "type": "address"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "amount",
-          "type": "uint256"
-        }
-      ],
-      "name": "DepositCommit",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [],
-      "name": "ExodusMode",
       "type": "event"
     },
     {
@@ -137,10 +75,79 @@
       "inputs": [
         {
           "indexed": false,
+          "internalType": "uint32",
+          "name": "expirationBlock",
+          "type": "uint32"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint64[]",
+          "name": "operationIDs",
+          "type": "uint64[]"
+        },
+        {
+          "indexed": false,
+          "internalType": "enum Operations.OpTree",
+          "name": "opTree",
+          "type": "uint8"
+        }
+      ],
+      "name": "MovePriorityOperationsFromBufferToHeap",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "enum Operations.OpTree",
+          "name": "opTree",
+          "type": "uint8"
+        },
+        {
+          "indexed": false,
           "internalType": "address",
           "name": "sender",
           "type": "address"
         },
+        {
+          "indexed": false,
+          "internalType": "uint96",
+          "name": "bidAmount",
+          "type": "uint96"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "complexity",
+          "type": "uint256"
+        }
+      ],
+      "name": "NewPriorityModeAuctionBid",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "enum Storage.PriorityModeEpochState",
+          "name": "subEpoch",
+          "type": "uint8"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint128",
+          "name": "subEpochEndTimestamp",
+          "type": "uint128"
+        }
+      ],
+      "name": "NewPriorityModeSubEpoch",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
         {
           "indexed": false,
           "internalType": "uint64",
@@ -149,21 +156,9 @@
         },
         {
           "indexed": false,
-          "internalType": "enum Operations.OpType",
-          "name": "opType",
-          "type": "uint8"
-        },
-        {
-          "indexed": false,
           "internalType": "bytes",
-          "name": "pubData",
+          "name": "opMetadata",
           "type": "bytes"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "expirationBlock",
-          "type": "uint256"
         }
       ],
       "name": "NewPriorityRequest",
@@ -171,39 +166,8 @@
     },
     {
       "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "uint32",
-          "name": "zkSyncBlockId",
-          "type": "uint32"
-        },
-        {
-          "indexed": true,
-          "internalType": "uint32",
-          "name": "accountId",
-          "type": "uint32"
-        },
-        {
-          "indexed": false,
-          "internalType": "address",
-          "name": "owner",
-          "type": "address"
-        },
-        {
-          "indexed": true,
-          "internalType": "address",
-          "name": "zkSyncTokenAddress",
-          "type": "address"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "amount",
-          "type": "uint256"
-        }
-      ],
-      "name": "WithdrawCommit",
+      "inputs": [],
+      "name": "PriorityMode",
       "type": "event"
     },
     {
@@ -251,17 +215,23 @@
       "name": "_transferERC20",
       "outputs": [
         {
-          "internalType": "uint128",
+          "internalType": "uint256",
           "name": "withdrawnAmount",
-          "type": "uint128"
+          "type": "uint256"
         }
       ],
       "stateMutability": "nonpayable",
       "type": "function"
     },
     {
-      "inputs": [],
-      "name": "activateExodusMode",
+      "inputs": [
+        {
+          "internalType": "uint32",
+          "name": "_heapOperationEthExpirationBlock",
+          "type": "uint32"
+        }
+      ],
+      "name": "activatePriorityMode",
       "outputs": [
         {
           "internalType": "bool",
@@ -275,51 +245,53 @@
     {
       "inputs": [
         {
-          "internalType": "address",
+          "internalType": "contract IERC20",
           "name": "_token",
           "type": "address"
+        },
+        {
+          "internalType": "enum Operations.QueueType",
+          "name": "_queueType",
+          "type": "uint8"
+        },
+        {
+          "internalType": "enum Operations.OpTree",
+          "name": "_opTree",
+          "type": "uint8"
         }
       ],
       "name": "addToken",
       "outputs": [],
-      "stateMutability": "nonpayable",
+      "stateMutability": "payable",
       "type": "function"
     },
     {
       "inputs": [
         {
-          "internalType": "address",
-          "name": "",
-          "type": "address"
+          "internalType": "uint256",
+          "name": "gasPrice",
+          "type": "uint256"
+        },
+        {
+          "internalType": "enum Operations.QueueType",
+          "name": "_queueType",
+          "type": "uint8"
+        },
+        {
+          "internalType": "enum Operations.OpTree",
+          "name": "_opTree",
+          "type": "uint8"
         }
       ],
-      "name": "addedTokens",
+      "name": "addTokenBaseCost",
       "outputs": [
         {
-          "internalType": "bool",
+          "internalType": "uint256",
           "name": "",
-          "type": "bool"
+          "type": "uint256"
         }
       ],
       "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint64",
-          "name": "_n",
-          "type": "uint64"
-        },
-        {
-          "internalType": "bytes[]",
-          "name": "_depositsPubdata",
-          "type": "bytes[]"
-        }
-      ],
-      "name": "cancelOutstandingDepositsForExodusMode",
-      "outputs": [],
-      "stateMutability": "nonpayable",
       "type": "function"
     },
     {
@@ -332,13 +304,28 @@
               "type": "uint32"
             },
             {
-              "internalType": "uint64",
-              "name": "lastProcessedPriorityOp",
-              "type": "uint64"
+              "internalType": "uint16",
+              "name": "numberOfLayer1Txs",
+              "type": "uint16"
+            },
+            {
+              "internalType": "uint16",
+              "name": "numberOfLayer2Txs",
+              "type": "uint16"
+            },
+            {
+              "internalType": "uint224",
+              "name": "priorityOperationsComplexity",
+              "type": "uint224"
             },
             {
               "internalType": "bytes32",
-              "name": "pendingOnchainOperationsHash",
+              "name": "processableOnchainOperationsHash",
+              "type": "bytes32"
+            },
+            {
+              "internalType": "bytes32",
+              "name": "priorityOperationsHash",
               "type": "bytes32"
             },
             {
@@ -394,19 +381,29 @@
               "type": "uint256"
             },
             {
-              "internalType": "uint64",
-              "name": "lastProcessedPriorityOp",
-              "type": "uint64"
+              "internalType": "uint224",
+              "name": "priorityOperationsComplexity",
+              "type": "uint224"
+            },
+            {
+              "internalType": "uint16",
+              "name": "numberOfLayer1Txs",
+              "type": "uint16"
+            },
+            {
+              "internalType": "uint16",
+              "name": "numberOfLayer2Txs",
+              "type": "uint16"
             },
             {
               "internalType": "bytes32",
-              "name": "unpriorityOpsOnchainDataHash",
+              "name": "processableOnchainOperationsHash",
               "type": "bytes32"
             },
             {
-              "internalType": "bytes",
-              "name": "priorityOperationsData",
-              "type": "bytes"
+              "internalType": "bytes32",
+              "name": "priorityOperationsHash",
+              "type": "bytes32"
             },
             {
               "internalType": "bytes",
@@ -432,6 +429,35 @@
     {
       "inputs": [
         {
+          "internalType": "uint256",
+          "name": "gasPrice",
+          "type": "uint256"
+        },
+        {
+          "internalType": "enum Operations.QueueType",
+          "name": "_queueType",
+          "type": "uint8"
+        },
+        {
+          "internalType": "enum Operations.OpTree",
+          "name": "_opTree",
+          "type": "uint8"
+        }
+      ],
+      "name": "depositBaseCost",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
           "internalType": "contract IERC20",
           "name": "_token",
           "type": "address"
@@ -445,19 +471,44 @@
           "internalType": "address",
           "name": "_zkSyncAddress",
           "type": "address"
+        },
+        {
+          "internalType": "enum Operations.QueueType",
+          "name": "_queueType",
+          "type": "uint8"
+        },
+        {
+          "internalType": "enum Operations.OpTree",
+          "name": "_opTree",
+          "type": "uint8"
         }
       ],
       "name": "depositERC20",
       "outputs": [],
-      "stateMutability": "nonpayable",
+      "stateMutability": "payable",
       "type": "function"
     },
     {
       "inputs": [
         {
+          "internalType": "uint256",
+          "name": "_amount",
+          "type": "uint256"
+        },
+        {
           "internalType": "address",
           "name": "_zkSyncAddress",
           "type": "address"
+        },
+        {
+          "internalType": "enum Operations.QueueType",
+          "name": "_queueType",
+          "type": "uint8"
+        },
+        {
+          "internalType": "enum Operations.OpTree",
+          "name": "_opTree",
+          "type": "uint8"
         }
       ],
       "name": "depositETH",
@@ -477,13 +528,28 @@
                   "type": "uint32"
                 },
                 {
-                  "internalType": "uint64",
-                  "name": "lastProcessedPriorityOp",
-                  "type": "uint64"
+                  "internalType": "uint16",
+                  "name": "numberOfLayer1Txs",
+                  "type": "uint16"
+                },
+                {
+                  "internalType": "uint16",
+                  "name": "numberOfLayer2Txs",
+                  "type": "uint16"
+                },
+                {
+                  "internalType": "uint224",
+                  "name": "priorityOperationsComplexity",
+                  "type": "uint224"
                 },
                 {
                   "internalType": "bytes32",
-                  "name": "pendingOnchainOperationsHash",
+                  "name": "processableOnchainOperationsHash",
+                  "type": "bytes32"
+                },
+                {
+                  "internalType": "bytes32",
+                  "name": "priorityOperationsHash",
                   "type": "bytes32"
                 },
                 {
@@ -513,7 +579,7 @@
             },
             {
               "internalType": "bytes",
-              "name": "pendingOnchainOpsPubdata",
+              "name": "processableOnchainOperations",
               "type": "bytes"
             }
           ],
@@ -525,32 +591,6 @@
       "name": "executeBlocks",
       "outputs": [],
       "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "exodusMode",
-      "outputs": [
-        {
-          "internalType": "bool",
-          "name": "",
-          "type": "bool"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "firstPriorityRequestId",
-      "outputs": [
-        {
-          "internalType": "uint64",
-          "name": "",
-          "type": "uint64"
-        }
-      ],
-      "stateMutability": "view",
       "type": "function"
     },
     {
@@ -632,97 +672,27 @@
     {
       "inputs": [
         {
-          "components": [
-            {
-              "internalType": "uint32",
-              "name": "blockNumber",
-              "type": "uint32"
-            },
-            {
-              "internalType": "uint64",
-              "name": "lastProcessedPriorityOp",
-              "type": "uint64"
-            },
-            {
-              "internalType": "bytes32",
-              "name": "pendingOnchainOperationsHash",
-              "type": "bytes32"
-            },
-            {
-              "internalType": "uint256",
-              "name": "timestamp",
-              "type": "uint256"
-            },
-            {
-              "internalType": "bytes32",
-              "name": "stateRoot",
-              "type": "bytes32"
-            },
-            {
-              "internalType": "bytes32",
-              "name": "zkPorterRoot",
-              "type": "bytes32"
-            },
-            {
-              "internalType": "bytes32",
-              "name": "commitment",
-              "type": "bytes32"
-            }
-          ],
-          "internalType": "struct Storage.StoredBlockInfo",
-          "name": "_storedBlockInfo",
-          "type": "tuple"
-        },
-        {
-          "internalType": "address",
-          "name": "_owner",
-          "type": "address"
-        },
-        {
-          "internalType": "uint32",
-          "name": "_accountId",
-          "type": "uint32"
-        },
-        {
-          "internalType": "address",
-          "name": "_zkSyncTokenAddress",
-          "type": "address"
-        },
-        {
           "internalType": "uint256",
-          "name": "_amount",
+          "name": "gasPrice",
           "type": "uint256"
         },
         {
-          "internalType": "uint256[]",
-          "name": "_proof",
-          "type": "uint256[]"
-        }
-      ],
-      "name": "performExodus",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint32",
-          "name": "",
-          "type": "uint32"
+          "internalType": "enum Operations.QueueType",
+          "name": "_queueType",
+          "type": "uint8"
         },
         {
-          "internalType": "address",
-          "name": "",
-          "type": "address"
+          "internalType": "enum Operations.OpTree",
+          "name": "_opTree",
+          "type": "uint8"
         }
       ],
-      "name": "performedExodus",
+      "name": "migrateToPorterBaseCost",
       "outputs": [
         {
-          "internalType": "bool",
+          "internalType": "uint256",
           "name": "",
-          "type": "bool"
+          "type": "uint256"
         }
       ],
       "stateMutability": "view",
@@ -731,6 +701,42 @@
     {
       "inputs": [
         {
+          "internalType": "uint256",
+          "name": "_nBufferOperationsToMove",
+          "type": "uint256"
+        },
+        {
+          "internalType": "enum Operations.OpTree",
+          "name": "_opTree",
+          "type": "uint8"
+        }
+      ],
+      "name": "movePriorityOpsFromBufferToMainQueue",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint112",
+          "name": "_complexityRoot",
+          "type": "uint112"
+        },
+        {
+          "internalType": "enum Operations.OpTree",
+          "name": "_opTree",
+          "type": "uint8"
+        }
+      ],
+      "name": "placeBidForBlocksProcessingAuction",
+      "outputs": [],
+      "stateMutability": "payable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
           "components": [
             {
               "internalType": "uint32",
@@ -738,13 +744,28 @@
               "type": "uint32"
             },
             {
-              "internalType": "uint64",
-              "name": "lastProcessedPriorityOp",
-              "type": "uint64"
+              "internalType": "uint16",
+              "name": "numberOfLayer1Txs",
+              "type": "uint16"
+            },
+            {
+              "internalType": "uint16",
+              "name": "numberOfLayer2Txs",
+              "type": "uint16"
+            },
+            {
+              "internalType": "uint224",
+              "name": "priorityOperationsComplexity",
+              "type": "uint224"
             },
             {
               "internalType": "bytes32",
-              "name": "pendingOnchainOperationsHash",
+              "name": "processableOnchainOperationsHash",
+              "type": "bytes32"
+            },
+            {
+              "internalType": "bytes32",
+              "name": "priorityOperationsHash",
               "type": "bytes32"
             },
             {
@@ -811,10 +832,21 @@
       "type": "function"
     },
     {
-      "inputs": [],
+      "inputs": [
+        {
+          "internalType": "enum Operations.QueueType",
+          "name": "_queueType",
+          "type": "uint8"
+        },
+        {
+          "internalType": "enum Operations.OpTree",
+          "name": "_opTree",
+          "type": "uint8"
+        }
+      ],
       "name": "requestMigrateToPorter",
       "outputs": [],
-      "stateMutability": "nonpayable",
+      "stateMutability": "payable",
       "type": "function"
     },
     {
@@ -833,56 +865,29 @@
           "internalType": "address",
           "name": "_to",
           "type": "address"
+        },
+        {
+          "internalType": "enum Operations.QueueType",
+          "name": "_queueType",
+          "type": "uint8"
+        },
+        {
+          "internalType": "enum Operations.OpTree",
+          "name": "_opTree",
+          "type": "uint8"
         }
       ],
       "name": "requestWithdraw",
       "outputs": [],
-      "stateMutability": "nonpayable",
+      "stateMutability": "payable",
       "type": "function"
     },
     {
       "inputs": [
         {
-          "components": [
-            {
-              "internalType": "uint32",
-              "name": "blockNumber",
-              "type": "uint32"
-            },
-            {
-              "internalType": "uint64",
-              "name": "lastProcessedPriorityOp",
-              "type": "uint64"
-            },
-            {
-              "internalType": "bytes32",
-              "name": "pendingOnchainOperationsHash",
-              "type": "bytes32"
-            },
-            {
-              "internalType": "uint256",
-              "name": "timestamp",
-              "type": "uint256"
-            },
-            {
-              "internalType": "bytes32",
-              "name": "stateRoot",
-              "type": "bytes32"
-            },
-            {
-              "internalType": "bytes32",
-              "name": "zkPorterRoot",
-              "type": "bytes32"
-            },
-            {
-              "internalType": "bytes32",
-              "name": "commitment",
-              "type": "bytes32"
-            }
-          ],
-          "internalType": "struct Storage.StoredBlockInfo[]",
+          "internalType": "uint32",
           "name": "_blocksToRevert",
-          "type": "tuple[]"
+          "type": "uint32"
         }
       ],
       "name": "revertBlocks",
@@ -911,32 +916,6 @@
           "internalType": "uint32",
           "name": "",
           "type": "uint32"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "totalBlocksProven",
-      "outputs": [
-        {
-          "internalType": "uint32",
-          "name": "",
-          "type": "uint32"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "totalCommittedPriorityRequests",
-      "outputs": [
-        {
-          "internalType": "uint64",
-          "name": "",
-          "type": "uint64"
         }
       ],
       "stateMutability": "view",
@@ -1004,6 +983,35 @@
           "internalType": "contract Verifier",
           "name": "",
           "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "gasPrice",
+          "type": "uint256"
+        },
+        {
+          "internalType": "enum Operations.QueueType",
+          "name": "_queueType",
+          "type": "uint8"
+        },
+        {
+          "internalType": "enum Operations.OpTree",
+          "name": "_opTree",
+          "type": "uint8"
+        }
+      ],
+      "name": "withdrawBaseCost",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
         }
       ],
       "stateMutability": "view",

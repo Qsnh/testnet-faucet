@@ -18,6 +18,16 @@ export enum AccountType {
     ZkPorter = 1
 }
 
+export enum PriorityQueueType {
+    Deque = 0,
+    Heap = 1
+}
+
+export enum PriorityOpTree {
+    Full = 0,
+    Rollup = 1
+}
+
 export enum TransactionStatus {
     NotFound = 'not-found',
     Processing = 'processing',
@@ -52,6 +62,12 @@ export interface EventFilter {
 
 export interface TransactionResponse extends providers.TransactionResponse {
     waitFinalize(): Promise<providers.TransactionReceipt>;
+}
+
+export interface DeployContractRequest extends providers.TransactionRequest {
+    accountType: AccountType;
+    bytecode: BytesLike;
+    data: BytesLike;
 }
 
 // special zkSync execution parameters

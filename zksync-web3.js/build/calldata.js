@@ -4,7 +4,6 @@ exports.calldataBytes = exports.parseCalldata = void 0;
 const ethers_1 = require("ethers");
 const ABI_OFFSET_CALL_RETURN_DATA = 8;
 const ABI_OFFSET_CALLDATA_SIZE = 0;
-const ABI_OFFSET_RETURN_DATA_SIZE = 1;
 const ABI_OFFSET_ENTRY_HASH = 7;
 const FIELD_SIZE = 32;
 function toLeBytes(x) {
@@ -41,18 +40,12 @@ exports.parseCalldata = parseCalldata;
 // Adapted from https://github.com/matter-labs/compiler-tester/blob/main/calldata_generator/src/calldata.rs
 // Spec: https://www.notion.so/matterlabs/Contract-ABI-21cfe71b2e3346029f4b591ae33332b4
 function calldataBytes(calldata) {
-    var _a;
     const calldataSize = calldata.input.length;
-    const returndataSize = (_a = calldata.outputSize) !== null && _a !== void 0 ? _a : 0;
     const size = (ABI_OFFSET_CALL_RETURN_DATA + calldataSize) * FIELD_SIZE;
     const buffer = new Uint8Array(size);
     const calldataSizeOffset = ABI_OFFSET_CALLDATA_SIZE * FIELD_SIZE;
     toLeBytes(calldataSize).forEach((byte, index) => {
         buffer[index + calldataSizeOffset] = byte;
-    });
-    const returndataSizeOffset = ABI_OFFSET_RETURN_DATA_SIZE * FIELD_SIZE;
-    toLeBytes(returndataSize).forEach((byte, index) => {
-        buffer[index + returndataSizeOffset] = byte;
     });
     const constructorCalllOffset = ABI_OFFSET_ENTRY_HASH * FIELD_SIZE;
     const isConstructorCall = calldata.constructorCall ? 1 : 0;

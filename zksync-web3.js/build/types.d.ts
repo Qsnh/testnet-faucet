@@ -11,6 +11,14 @@ export declare enum AccountType {
     ZkRollup = 0,
     ZkPorter = 1
 }
+export declare enum PriorityQueueType {
+    Deque = 0,
+    Heap = 1
+}
+export declare enum PriorityOpTree {
+    Full = 0,
+    Rollup = 1
+}
 export declare enum TransactionStatus {
     NotFound = "not-found",
     Processing = "processing",
@@ -33,6 +41,11 @@ export interface EventFilter {
 }
 export interface TransactionResponse extends providers.TransactionResponse {
     waitFinalize(): Promise<providers.TransactionReceipt>;
+}
+export interface DeployContractRequest extends providers.TransactionRequest {
+    accountType: AccountType;
+    bytecode: BytesLike;
+    data: BytesLike;
 }
 export interface ExecutionParams {
     feeToken?: Address;

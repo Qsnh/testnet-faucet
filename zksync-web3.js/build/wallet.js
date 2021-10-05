@@ -4,6 +4,7 @@ exports.Wallet = void 0;
 const signer_1 = require("./signer");
 const utils_1 = require("./utils");
 const ethers_1 = require("ethers");
+const types_1 = require("./types");
 class Wallet extends ethers_1.ethers.Wallet {
     constructor(privateKey, providerL2, providerL1) {
         super(privateKey, providerL2);
@@ -55,7 +56,7 @@ class Wallet extends ethers_1.ethers.Wallet {
         const address = await this.provider.getMainContractAddress();
         return new ethers_1.ethers.Contract(address, utils_1.ZKSYNC_MAIN_ABI, this.ethWallet());
     }
-    async _txDefaults() {
+    async layer2TxDefaults() {
         return {
             initiatorAddress: this.address,
             nonce: await this.getNonce(),
@@ -65,9 +66,15 @@ class Wallet extends ethers_1.ethers.Wallet {
             signature: null
         };
     }
+    layer1TxDefaults() {
+        return {
+            queueType: types_1.PriorityQueueType.Deque,
+            opTree: types_1.PriorityOpTree.Full
+        };
+    }
     async transfer(transaction) {
         var _a, _b;
-        const tx = Object.assign(await this._txDefaults(), transaction);
+        const tx = Object.assign(await this.layer2TxDefaults(), transaction);
         (_a = tx.feeToken) !== null && _a !== void 0 ? _a : (tx.feeToken = tx.token);
         (_b = tx.fee) !== null && _b !== void 0 ? _b : (tx.fee = await this.provider.estimateFee(utils_1.serialize.transfer(tx)));
         tx.signature = await this.signer.signTransfer(tx);
@@ -76,7 +83,7 @@ class Wallet extends ethers_1.ethers.Wallet {
     }
     async withdraw(transaction) {
         var _a, _b, _c;
-        const tx = Object.assign(await this._txDefaults(), transaction);
+        const tx = Object.assign(await this.layer2TxDefaults(), transaction);
         (_a = tx.to) !== null && _a !== void 0 ? _a : (tx.to = this.address);
         (_b = tx.feeToken) !== null && _b !== void 0 ? _b : (tx.feeToken = tx.token);
         (_c = tx.fee) !== null && _c !== void 0 ? _c : (tx.fee = await this.provider.estimateFee(utils_1.serialize.withdraw(tx)));
@@ -86,7 +93,7 @@ class Wallet extends ethers_1.ethers.Wallet {
     }
     async migrateToPorter(transaction) {
         var _a;
-        const tx = Object.assign(await this._txDefaults(), transaction);
+        const tx = Object.assign(await this.layer2TxDefaults(), transaction);
         (_a = tx.fee) !== null && _a !== void 0 ? _a : (tx.fee = await this.provider.estimateFee(utils_1.serialize.migrateToPorter(tx)));
         tx.signature = await this.signer.signMigrateToPorter(tx);
         const rawTx = await super.signTransaction({ data: utils_1.serialize.migrateToPorter(tx) });
@@ -94,7 +101,7 @@ class Wallet extends ethers_1.ethers.Wallet {
     }
     async deployContract(transaction) {
         var _a;
-        const tx = Object.assign(await this._txDefaults(), { calldata: utils_1.defaultCalldata(), ...transaction });
+        const tx = Object.assign(await this.layer2TxDefaults(), { calldata: utils_1.defaultCalldata(), ...transaction });
         (_a = tx.fee) !== null && _a !== void 0 ? _a : (tx.fee = await this.provider.estimateFee(utils_1.serialize.deployContract(tx)));
         tx.signature = await this.signer.signDeployContract(tx);
         const rawTx = await super.signTransaction({ data: utils_1.serialize.deployContract(tx) });
@@ -103,7 +110,7 @@ class Wallet extends ethers_1.ethers.Wallet {
     // This is almost equivalent to Wallet.sendTransaction but more explicit
     async rawExecute(transaction) {
         var _a;
-        const tx = Object.assign(await this._txDefaults(), transaction);
+        const tx = Object.assign(await this.layer2TxDefaults(), transaction);
         (_a = tx.fee) !== null && _a !== void 0 ? _a : (tx.fee = await this.provider.estimateFee(utils_1.serialize.execute(tx)));
         tx.signature = await this.signer.signExecuteContract(tx);
         const rawTx = await super.signTransaction({ data: utils_1.serialize.execute(tx) });
@@ -125,18 +132,32 @@ class Wallet extends ethers_1.ethers.Wallet {
         }
         const tx = {
             contractAddress: transaction.to,
-            calldata: ethers_1.utils.arrayify((_a = this.params.data) !== null && _a !== void 0 ? _a : transaction.data),
-            initiatorAddress: transaction.from,
-            nonce: ethers_1.BigNumber.from(transaction.nonce).toNumber(),
-            validFrom: (_b = this.params.validFrom) !== null && _b !== void 0 ? _b : utils_1.MIN_TIMESTAMP,
-            validUntil: (_c = this.params.validUntil) !== null && _c !== void 0 ? _c : utils_1.MAX_TIMESTAMP,
+            calldata: this.params.data ? ethers_1.utils.arrayify(this.params.data) : null,
+            initiatorAddress: transaction.from || this.address,
+            nonce: transaction.nonce ? ethers_1.BigNumber.from(transaction.nonce).toNumber() : await this.getNonce(),
+            validFrom: (_a = this.params.validFrom) !== null && _a !== void 0 ? _a : utils_1.MIN_TIMESTAMP,
+            validUntil: (_b = this.params.validUntil) !== null && _b !== void 0 ? _b : utils_1.MAX_TIMESTAMP,
             feeToken: this.params.feeToken,
             fee: this.params.fee,
             signature: null
         };
-        (_d = tx.fee) !== null && _d !== void 0 ? _d : (tx.fee = await this.provider.estimateFee(utils_1.serialize.execute(tx)));
-        tx.signature = await this.signer.signExecuteContract(tx);
-        const signedTransaction = super.signTransaction({ data: utils_1.serialize.execute(tx) });
+        let signedTransaction = null;
+        if (utils_1.isDeployContractRequest(transaction)) {
+            const deployTx = {
+                ...tx,
+                bytecode: ethers_1.utils.arrayify(transaction.bytecode),
+                accountType: transaction.accountType,
+                calldata: ethers_1.utils.arrayify(transaction.data)
+            };
+            (_c = deployTx.fee) !== null && _c !== void 0 ? _c : (deployTx.fee = await this.provider.estimateFee(utils_1.serialize.deployContract(deployTx)));
+            deployTx.signature = await this.signer.signDeployContract(deployTx);
+            signedTransaction = await super.signTransaction({ data: utils_1.serialize.deployContract(deployTx) });
+        }
+        else {
+            (_d = tx.fee) !== null && _d !== void 0 ? _d : (tx.fee = await this.provider.estimateFee(utils_1.serialize.execute(tx)));
+            tx.signature = await this.signer.signExecuteContract(tx);
+            signedTransaction = await super.signTransaction({ data: utils_1.serialize.execute(tx) });
+        }
         this.clearParams();
         return signedTransaction;
     }
@@ -175,38 +196,52 @@ class Wallet extends ethers_1.ethers.Wallet {
         return erc20contract.approve(mainContract, amount, { gasLimit, ...overrides });
     }
     async deposit(transaction) {
-        var _a, _b;
+        var _a, _b, _c, _d, _e, _f, _g, _h;
         const zksyncContract = await this.getMainContract();
-        const { token, amount } = transaction;
-        const depositTo = (_a = transaction.to) !== null && _a !== void 0 ? _a : this.address;
+        const tx = Object.assign(this.layer1TxDefaults(), transaction);
+        (_a = tx.to) !== null && _a !== void 0 ? _a : (tx.to = this.address);
+        (_b = tx.operatorTip) !== null && _b !== void 0 ? _b : (tx.operatorTip = ethers_1.BigNumber.from(0));
+        (_c = tx.overrides) !== null && _c !== void 0 ? _c : (tx.overrides = {});
+        const { to, token, amount, queueType, opTree, operatorTip, overrides } = tx;
+        (_d = overrides.gasPrice) !== null && _d !== void 0 ? _d : (overrides.gasPrice = await this.provider.getGasPrice());
+        const baseCost = ethers_1.BigNumber.from(await zksyncContract.depositBaseCost(overrides.gasPrice, queueType, opTree));
         if (utils_1.isETH(token)) {
-            return zksyncContract.depositETH(depositTo, {
-                value: ethers_1.BigNumber.from(amount),
+            (_e = overrides.value) !== null && _e !== void 0 ? _e : (overrides.value = baseCost.add(operatorTip).add(amount));
+            return zksyncContract.depositETH(amount, to, queueType, opTree, {
                 gasLimit: ethers_1.BigNumber.from(utils_1.RECOMMENDED_GAS_LIMIT.ETH_DEPOSIT),
-                ...transaction.overrides
+                ...overrides
             });
         }
         else {
+            (_f = overrides.value) !== null && _f !== void 0 ? _f : (overrides.value = baseCost.add(operatorTip));
             let nonce = undefined;
             if (transaction.approveERC20) {
                 const approveTx = await this.approveERC20(token, amount);
                 nonce = approveTx.nonce + 1;
             }
-            const overrides = { nonce, ...transaction.overrides };
-            const args = [token, amount, depositTo];
+            (_g = overrides.nonce) !== null && _g !== void 0 ? _g : (overrides.nonce = nonce);
+            const args = [token, amount, to, queueType, opTree];
             if (overrides.gasLimit == null) {
                 const gasEstimate = await zksyncContract.estimateGas
                     .depositERC20(...args, overrides)
                     .catch(() => ethers_1.BigNumber.from(0));
-                const recommendedGasLimit = (_b = utils_1.RECOMMENDED_GAS_LIMIT.ERC20_DEPOSIT[token]) !== null && _b !== void 0 ? _b : utils_1.RECOMMENDED_GAS_LIMIT.ERC20_DEFAULT_DEPOSIT;
+                const recommendedGasLimit = (_h = utils_1.RECOMMENDED_GAS_LIMIT.ERC20_DEPOSIT[token]) !== null && _h !== void 0 ? _h : utils_1.RECOMMENDED_GAS_LIMIT.ERC20_DEFAULT_DEPOSIT;
                 overrides.gasLimit = gasEstimate.gte(recommendedGasLimit) ? gasEstimate : recommendedGasLimit;
             }
             return zksyncContract.depositERC20(...args, overrides);
         }
     }
-    async addToken(token, overrides) {
+    async addToken(transaction) {
+        var _a, _b, _c, _d;
         const zksyncContract = await this.getMainContract();
-        return zksyncContract.addToken(token, {
+        const tx = Object.assign(this.layer1TxDefaults(), transaction);
+        (_a = tx.operatorTip) !== null && _a !== void 0 ? _a : (tx.operatorTip = ethers_1.BigNumber.from(0));
+        (_b = tx.overrides) !== null && _b !== void 0 ? _b : (tx.overrides = {});
+        const { token, queueType, opTree, operatorTip, overrides } = tx;
+        (_c = overrides.gasPrice) !== null && _c !== void 0 ? _c : (overrides.gasPrice = await this.provider.getGasPrice());
+        const baseCost = ethers_1.BigNumber.from(await zksyncContract.addTokenBaseCost(overrides.gasPrice, queueType, opTree));
+        (_d = overrides.value) !== null && _d !== void 0 ? _d : (overrides.value = baseCost.add(operatorTip));
+        return zksyncContract.addToken(token, queueType, opTree, {
             gasLimit: ethers_1.BigNumber.from(utils_1.RECOMMENDED_GAS_LIMIT.ADD_TOKEN),
             ...overrides
         });

@@ -1,7 +1,7 @@
 import { EIP712Signer } from './signer';
 import { Provider } from './provider';
 import { ethers, utils, BigNumberish, BigNumber } from 'ethers';
-import { Address, AccountType, ExecutionParams, BlockTag } from './types';
+import { Address, AccountType, PriorityQueueType, PriorityOpTree, ExecutionParams, BlockTag } from './types';
 import { ProgressCallback } from '@ethersproject/json-wallets';
 export declare class Wallet extends ethers.Wallet {
     readonly signer: EIP712Signer;
@@ -18,7 +18,7 @@ export declare class Wallet extends ethers.Wallet {
     constructor(privateKey: ethers.BytesLike | utils.SigningKey, providerL2?: Provider, providerL1?: ethers.providers.Provider);
     getNonce(blockTag?: BlockTag): Promise<number>;
     getMainContract(): Promise<ethers.Contract>;
-    protected _txDefaults(): Promise<{
+    protected layer2TxDefaults(): Promise<{
         initiatorAddress: string;
         nonce: number;
         validFrom: number;
@@ -26,6 +26,7 @@ export declare class Wallet extends ethers.Wallet {
         fee: any;
         signature: any;
     }>;
+    private layer1TxDefaults;
     transfer(transaction: {
         to: Address;
         token: Address;
@@ -83,9 +84,18 @@ export declare class Wallet extends ethers.Wallet {
         token: Address;
         amount: BigNumberish;
         to?: Address;
+        queueType?: PriorityQueueType;
+        opTree?: PriorityOpTree;
+        operatorTip?: BigNumberish;
         approveERC20?: boolean;
         overrides?: ethers.CallOverrides;
     }): Promise<ethers.providers.TransactionResponse>;
-    addToken(token: Address, overrides?: ethers.CallOverrides): Promise<ethers.providers.TransactionResponse>;
+    addToken(transaction: {
+        token: Address;
+        queueType?: PriorityQueueType;
+        opTree?: PriorityOpTree;
+        operatorTip?: BigNumberish;
+        overrides?: ethers.CallOverrides;
+    }): Promise<ethers.providers.TransactionResponse>;
     accountType(): Promise<AccountType>;
 }

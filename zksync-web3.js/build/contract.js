@@ -5,19 +5,38 @@ const ethers_1 = require("ethers");
 const calldata_1 = require("./calldata");
 // Returns the contract deploy execution params and
 // removes them from the args
-function extractDeployExecutionParams(args) {
+function extractPartialDeployExecutionParams(args) {
     if (args.length == 0 || typeof [args.length - 1] != 'object') {
         throw new Error('Execution params must be specified');
     }
-    const params = args.pop();
+    return args.pop();
+}
+function extractDeployExecutionParams(args) {
+    const params = extractPartialDeployExecutionParams(args);
     if (params.feeToken == null) {
         throw new Error('feeToken must be specified');
+    }
+    if (params.contractType == null) {
+        throw new Error('contractType must be specified');
     }
     return params;
 }
 class ContractFactory extends ethers_1.ethers.ContractFactory {
     constructor(abi, bytecode, signer) {
         super(abi, bytecode, signer);
+    }
+    getDeployTransaction(...args) {
+        const params = extractPartialDeployExecutionParams(args);
+        if (params.contractType == null) {
+            throw new Error('contractType must be specified');
+        }
+        const populated = {
+            ...super.getDeployTransaction(...args),
+            bytecode: this.bytecode.toString(),
+            accountType: params.contractType,
+            data: this.getDeployCallData(...args)
+        };
+        return populated;
     }
     async deploy(...args) {
         const params = extractDeployExecutionParams(args);

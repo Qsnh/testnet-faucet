@@ -1,22 +1,30 @@
 import { Wallet } from './wallet';
 import { Provider } from './provider';
 import { ContractInterface, ethers, utils } from 'ethers';
-import { Address, DeployExecutionParams } from './types';
+import { Address, DeployContractRequest, DeployExecutionParams } from './types';
 import { calldataBytes, parseCalldata } from './calldata';
 
 // Returns the contract deploy execution params and
 // removes them from the args
-function extractDeployExecutionParams(args: Array<any>): DeployExecutionParams {
+function extractPartialDeployExecutionParams(args: Array<any>): Partial<DeployExecutionParams> {
     if (args.length == 0 || typeof [args.length - 1] != 'object') {
         throw new Error('Execution params must be specified');
     }
-    const params = args.pop();
+    return args.pop();
+}
+
+function extractDeployExecutionParams(args: Array<any>): DeployExecutionParams {
+    const params = extractPartialDeployExecutionParams(args);
 
     if (params.feeToken == null) {
         throw new Error('feeToken must be specified');
     }
 
-    return params;
+    if (params.contractType == null) {
+        throw new Error('contractType must be specified');
+    }
+
+    return params as DeployExecutionParams;
 }
 
 export class ContractFactory extends ethers.ContractFactory {
@@ -24,6 +32,23 @@ export class ContractFactory extends ethers.ContractFactory {
 
     constructor(abi: ContractInterface, bytecode: ethers.BytesLike, signer: Wallet) {
         super(abi, bytecode, signer);
+    }
+
+    override getDeployTransaction(...args: Array<any>): DeployContractRequest {
+        const params = extractPartialDeployExecutionParams(args);
+
+        if (params.contractType == null) {
+            throw new Error('contractType must be specified');
+        }
+
+        const populated: DeployContractRequest = {
+            ...super.getDeployTransaction(...args),
+            bytecode: this.bytecode.toString(), // We do copy in case bytecode is array.
+            accountType: params.contractType!,
+            data: this.getDeployCallData(...args)
+        };
+
+        return populated;
     }
 
     override async deploy(...args: Array<any>): Promise<Contract> {

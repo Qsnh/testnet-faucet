@@ -12,7 +12,6 @@ interface CallData extends CallDataParams {
 
 const ABI_OFFSET_CALL_RETURN_DATA = 8;
 const ABI_OFFSET_CALLDATA_SIZE = 0;
-const ABI_OFFSET_RETURN_DATA_SIZE = 1;
 const ABI_OFFSET_ENTRY_HASH = 7;
 const FIELD_SIZE = 32;
 
@@ -58,18 +57,12 @@ export function parseCalldata(calldata: ethers.BytesLike, params?: CallDataParam
 // Spec: https://www.notion.so/matterlabs/Contract-ABI-21cfe71b2e3346029f4b591ae33332b4
 export function calldataBytes(calldata: CallData): Uint8Array {
     const calldataSize = calldata.input.length;
-    const returndataSize = calldata.outputSize ?? 0;
     const size = (ABI_OFFSET_CALL_RETURN_DATA + calldataSize) * FIELD_SIZE;
     const buffer = new Uint8Array(size);
 
     const calldataSizeOffset = ABI_OFFSET_CALLDATA_SIZE * FIELD_SIZE;
     toLeBytes(calldataSize).forEach((byte, index) => {
         buffer[index + calldataSizeOffset] = byte;
-    });
-
-    const returndataSizeOffset = ABI_OFFSET_RETURN_DATA_SIZE * FIELD_SIZE;
-    toLeBytes(returndataSize).forEach((byte, index) => {
-        buffer[index + returndataSizeOffset] = byte;
     });
 
     const constructorCalllOffset = ABI_OFFSET_ENTRY_HASH * FIELD_SIZE;

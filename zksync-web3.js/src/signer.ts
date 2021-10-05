@@ -42,7 +42,7 @@ export class EIP712Signer {
 
         const signInput = { ...transfer, initiatorAddress: await this.ethSigner.getAddress() };
 
-        return this.ethSigner._signTypedData(await this.eip712Domain, types, signInput);
+        return (this.ethSigner as ethers.Signer & TypedDataSigner)._signTypedData(await this.eip712Domain, types, signInput);
     }
 
     async signMigrateToPorter(migrateToPorter: {

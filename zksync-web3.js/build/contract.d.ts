@@ -1,10 +1,11 @@
 import { Wallet } from './wallet';
 import { Provider } from './provider';
 import { ContractInterface, ethers } from 'ethers';
-import { Address } from './types';
+import { Address, DeployContractRequest } from './types';
 export declare class ContractFactory extends ethers.ContractFactory {
     readonly signer: Wallet;
     constructor(abi: ContractInterface, bytecode: ethers.BytesLike, signer: Wallet);
+    getDeployTransaction(...args: Array<any>): DeployContractRequest;
     deploy(...args: Array<any>): Promise<Contract>;
     getDeployCallData(...args: Array<any>): Uint8Array;
 }

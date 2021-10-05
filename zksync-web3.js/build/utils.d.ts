@@ -1,5 +1,5 @@
-import { utils } from 'ethers';
-import { Transfer, Withdraw, MigrateToPorter, Execute, DeployContract, Address } from './types';
+import { utils, ethers } from 'ethers';
+import { Transfer, Withdraw, MigrateToPorter, Execute, DeployContract, Address, DeployContractRequest } from './types';
 export { calldataBytes, parseCalldata } from './calldata';
 export declare const MIN_TIMESTAMP = 0;
 export declare const MAX_TIMESTAMP: number;
@@ -24,3 +24,4 @@ export declare namespace serialize {
     const execute: (tx: Execute) => string;
     const deployContract: (tx: DeployContract) => string;
 }
+export declare function isDeployContractRequest(request: ethers.providers.TransactionRequest): request is DeployContractRequest;

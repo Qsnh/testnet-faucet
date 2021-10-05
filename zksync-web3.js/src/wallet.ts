@@ -8,10 +8,20 @@ import {
     IERC20,
     isETH,
     serialize,
-    defaultCalldata
+    defaultCalldata,
+    isDeployContractRequest
 } from './utils';
 import { ethers, utils, BigNumberish, BigNumber } from 'ethers';
-import { Address, AccountType, ExecutionParams, BlockTag, Withdraw, Transfer } from './types';
+import {
+    Address,
+    AccountType,
+    PriorityQueueType,
+    PriorityOpTree,
+    ExecutionParams,
+    BlockTag,
+    Withdraw,
+    Transfer
+} from './types';
 import { ProgressCallback } from '@ethersproject/json-wallets';
 
 export class Wallet extends ethers.Wallet {
@@ -87,7 +97,7 @@ export class Wallet extends ethers.Wallet {
         return new ethers.Contract(address, ZKSYNC_MAIN_ABI, this.ethWallet());
     }
 
-    protected async _txDefaults() {
+    protected async layer2TxDefaults() {
         return {
             initiatorAddress: this.address,
             nonce: await this.getNonce(),
@@ -95,6 +105,13 @@ export class Wallet extends ethers.Wallet {
             validUntil: MAX_TIMESTAMP,
             fee: null,
             signature: null
+        };
+    }
+
+    private layer1TxDefaults() {
+        return {
+            queueType: PriorityQueueType.Deque,
+            opTree: PriorityOpTree.Full
         };
     }
 
@@ -108,7 +125,7 @@ export class Wallet extends ethers.Wallet {
         validFrom?: number;
         validUntil?: number;
     }) {
-        const tx = Object.assign(await this._txDefaults(), transaction) as Required<Transfer>;
+        const tx = Object.assign(await this.layer2TxDefaults(), transaction) as Required<Transfer>;
 
         tx.feeToken ??= tx.token;
         tx.fee ??= await this.provider.estimateFee(serialize.transfer(tx));
@@ -128,7 +145,7 @@ export class Wallet extends ethers.Wallet {
         validFrom?: number;
         validUntil?: number;
     }) {
-        const tx = Object.assign(await this._txDefaults(), transaction) as Required<Withdraw>;
+        const tx = Object.assign(await this.layer2TxDefaults(), transaction) as Required<Withdraw>;
 
         tx.to ??= this.address;
         tx.feeToken ??= tx.token;
@@ -146,7 +163,7 @@ export class Wallet extends ethers.Wallet {
         validFrom?: number;
         validUntil?: number;
     }) {
-        const tx = Object.assign(await this._txDefaults(), transaction);
+        const tx = Object.assign(await this.layer2TxDefaults(), transaction);
 
         tx.fee ??= await this.provider.estimateFee(serialize.migrateToPorter(tx));
         tx.signature = await this.signer.signMigrateToPorter(tx);
@@ -165,7 +182,7 @@ export class Wallet extends ethers.Wallet {
         validFrom?: number;
         validUntil?: number;
     }) {
-        const tx = Object.assign(await this._txDefaults(), { calldata: defaultCalldata(), ...transaction });
+        const tx = Object.assign(await this.layer2TxDefaults(), { calldata: defaultCalldata(), ...transaction });
 
         tx.fee ??= await this.provider.estimateFee(serialize.deployContract(tx));
         tx.signature = await this.signer.signDeployContract(tx);
@@ -184,7 +201,7 @@ export class Wallet extends ethers.Wallet {
         validFrom?: number;
         validUntil?: number;
     }) {
-        const tx = Object.assign(await this._txDefaults(), transaction);
+        const tx = Object.assign(await this.layer2TxDefaults(), transaction);
 
         tx.fee ??= await this.provider.estimateFee(serialize.execute(tx));
         tx.signature = await this.signer.signExecuteContract(tx);
@@ -211,9 +228,9 @@ export class Wallet extends ethers.Wallet {
 
         const tx = {
             contractAddress: transaction.to,
-            calldata: utils.arrayify(this.params.data ?? transaction.data),
-            initiatorAddress: transaction.from,
-            nonce: BigNumber.from(transaction.nonce).toNumber(),
+            calldata: this.params.data ? utils.arrayify(this.params.data) : null,
+            initiatorAddress: transaction.from || this.address,
+            nonce: transaction.nonce ? BigNumber.from(transaction.nonce).toNumber() : await this.getNonce(),
             validFrom: this.params.validFrom ?? MIN_TIMESTAMP,
             validUntil: this.params.validUntil ?? MAX_TIMESTAMP,
             feeToken: this.params.feeToken,
@@ -221,10 +238,26 @@ export class Wallet extends ethers.Wallet {
             signature: null
         };
 
-        tx.fee ??= await this.provider.estimateFee(serialize.execute(tx));
-        tx.signature = await this.signer.signExecuteContract(tx);
+        let signedTransaction: string = null;
+        if (isDeployContractRequest(transaction)) {
+            const deployTx = {
+                ...tx,
+                bytecode: utils.arrayify(transaction.bytecode),
+                accountType: transaction.accountType,
+                calldata: utils.arrayify(transaction.data)
+            };
 
-        const signedTransaction = super.signTransaction({ data: serialize.execute(tx) });
+            deployTx.fee ??= await this.provider.estimateFee(serialize.deployContract(deployTx));
+            deployTx.signature = await this.signer.signDeployContract(deployTx);
+
+            signedTransaction = await super.signTransaction({ data: serialize.deployContract(deployTx) });
+        } else {
+            tx.fee ??= await this.provider.estimateFee(serialize.execute(tx));
+            tx.signature = await this.signer.signExecuteContract(tx);
+
+            signedTransaction = await super.signTransaction({ data: serialize.execute(tx) });
+        }
+
         this.clearParams();
         return signedTransaction;
     }
@@ -277,28 +310,43 @@ export class Wallet extends ethers.Wallet {
         token: Address;
         amount: BigNumberish;
         to?: Address;
+        queueType?: PriorityQueueType;
+        opTree?: PriorityOpTree;
+        operatorTip?: BigNumberish;
         approveERC20?: boolean;
         overrides?: ethers.CallOverrides;
     }): Promise<ethers.providers.TransactionResponse> {
         const zksyncContract = await this.getMainContract();
-        const { token, amount } = transaction;
-        const depositTo = transaction.to ?? this.address;
+
+        const tx = Object.assign(this.layer1TxDefaults(), transaction);
+
+        tx.to ??= this.address;
+        tx.operatorTip ??= BigNumber.from(0);
+        tx.overrides ??= {};
+
+        const { to, token, amount, queueType, opTree, operatorTip, overrides } = tx;
+        overrides.gasPrice ??= await this.provider.getGasPrice();
+
+        const baseCost = BigNumber.from(await zksyncContract.depositBaseCost(overrides.gasPrice, queueType, opTree));
 
         if (isETH(token)) {
-            return zksyncContract.depositETH(depositTo, {
-                value: BigNumber.from(amount),
+            overrides.value ??= baseCost.add(operatorTip).add(amount);
+
+            return zksyncContract.depositETH(amount, to, queueType, opTree, {
                 gasLimit: BigNumber.from(RECOMMENDED_GAS_LIMIT.ETH_DEPOSIT),
-                ...transaction.overrides
+                ...overrides
             });
         } else {
+            overrides.value ??= baseCost.add(operatorTip);
+
             let nonce: number = undefined;
             if (transaction.approveERC20) {
                 const approveTx = await this.approveERC20(token, amount);
                 nonce = approveTx.nonce + 1;
             }
 
-            const overrides = { nonce, ...transaction.overrides };
-            const args = [token, amount, depositTo];
+            overrides.nonce ??= nonce;
+            const args = [token, amount, to, queueType, opTree];
 
             if (overrides.gasLimit == null) {
                 const gasEstimate = await zksyncContract.estimateGas
@@ -313,9 +361,28 @@ export class Wallet extends ethers.Wallet {
         }
     }
 
-    async addToken(token: Address, overrides?: ethers.CallOverrides): Promise<ethers.providers.TransactionResponse> {
+    async addToken(transaction: {
+        token: Address;
+        queueType?: PriorityQueueType;
+        opTree?: PriorityOpTree;
+        operatorTip?: BigNumberish;
+        overrides?: ethers.CallOverrides;
+    }): Promise<ethers.providers.TransactionResponse> {
         const zksyncContract = await this.getMainContract();
-        return zksyncContract.addToken(token, {
+
+        const tx = Object.assign(this.layer1TxDefaults(), transaction);
+
+        tx.operatorTip ??= BigNumber.from(0);
+        tx.overrides ??= {};
+
+        const { token, queueType, opTree, operatorTip, overrides } = tx;
+        overrides.gasPrice ??= await this.provider.getGasPrice();
+
+        const baseCost = BigNumber.from(await zksyncContract.addTokenBaseCost(overrides.gasPrice, queueType, opTree));
+
+        overrides.value ??= baseCost.add(operatorTip);
+
+        return zksyncContract.addToken(token, queueType, opTree, {
             gasLimit: BigNumber.from(RECOMMENDED_GAS_LIMIT.ADD_TOKEN),
             ...overrides
         });
