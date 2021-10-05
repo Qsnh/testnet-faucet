@@ -34,8 +34,10 @@ const WALLET = new zksync.Wallet(process.env.SECRET_KEY).connect(PROVIDER);
 function getTokenAmount(tokenAddress: string) {
     if (tokenAddress.toLowerCase() == "0x7457fc3f89ac99837d44f60B7860691fb2f09Bf5") { // wBTC
         return BigNumber.from(10).pow(6); // 0.01
-    } else if(tokenAddress.toLowerCase() == "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee") { // ETH
-        return BigNumber.from(10).pow(11); // 0.0000001
+    } else if(tokenAddress.toLowerCase() == "0xd2084ea2ae4bbe1424e4fe3cde25b713632fb988") { // BAT
+        return (BigNumber.from(10).pow(18)).mul(3000); // 3000
+    } else if(tokenAddress.toLowerCase() == "0xeb8f08a975ab53e34d8a0330e0d34de942c95926") { // USDC
+        return (BigNumber.from(10).pow(6)).mul(300); // 300
     } else { // DAI
         return (BigNumber.from(10).pow(18)).mul(300); // 300
     }
