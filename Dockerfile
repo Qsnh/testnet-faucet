@@ -1,4 +1,4 @@
-FROM node:12
+FROM node:14
 
 # Create app directory
 WORKDIR /usr/src/app
@@ -8,8 +8,9 @@ COPY state.json ./
 COPY app ./app
 COPY package.json ./
 COPY yarn.lock ./
-
 RUN yarn
+COPY . . 
+
 
 EXPOSE 2880
 
