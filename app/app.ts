@@ -74,7 +74,7 @@ app.post('/ask_money', async (req, res) => {
             feeToken: "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE",
             nonce: nonce
         });
-        
+        await transfer.wait();
         nonce += 1;
         
         console.log(`Transferred funds to ${receiverAddress}`);
