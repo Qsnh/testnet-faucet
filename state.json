@@ -1,42 +1,5 @@
 {
   "store": {},
-  "sendMoneyQueue": [
-    {
-      "receiverAddress": "0x81931656bf01701d2d8dc4b9cd5a8ff7253d4047",
-      "tokenAddress": "0x81931656bf01701d2d8dc4b9cd5a8ff7253d4047"
-    },
-    {
-      "receiverAddress": "0x81931656bf01701d2d8dc4b9cd5a8ff7253d4047",
-      "tokenAddress": "0x81931656bf01701d2d8dc4b9cd5a8ff7253d4047"
-    },
-    {
-      "receiverAddress": "0x81931656bf01701d2d8dc4b9cd5a8ff7253d4047",
-      "tokenAddress": "0x81931656bf01701d2d8dc4b9cd5a8ff7253d4047"
-    },
-    {
-      "receiverAddress": "0x81931656bf01701d2d8dc4b9cd5a8ff7253d4047",
-      "tokenAddress": "0x81931656bf01701d2d8dc4b9cd5a8ff7253d4047"
-    },
-    {
-      "receiverAddress": "0x81931656bf01701d2d8dc4b9cd5a8ff7253d4047",
-      "tokenAddress": "0x81931656bf01701d2d8dc4b9cd5a8ff7253d4047"
-    },
-    {
-      "receiverAddress": "0x81931656bf01701d2d8dc4b9cd5a8ff7253d4047",
-      "tokenAddress": "0x81931656bf01701d2d8dc4b9cd5a8ff7253d4047"
-    },
-    {
-      "receiverAddress": "0x81931656bf01701d2d8dc4b9cd5a8ff7253d4047",
-      "tokenAddress": "0x81931656bf01701d2d8dc4b9cd5a8ff7253d4047"
-    },
-    {
-      "receiverAddress": "0x81931656bf01701d2d8dc4b9cd5a8ff7253d4047",
-      "tokenAddress": "0x81931656bf01701d2d8dc4b9cd5a8ff7253d4047"
-    },
-    {
-      "receiverAddress": "0x81931656bf01701d2d8dc4b9cd5a8ff7253d4047",
-      "tokenAddress": "0x81931656bf01701d2d8dc4b9cd5a8ff7253d4047"
-    }
-  ],
+  "sendMoneyQueue": [],
   "allowWithdrawalSet": {}
 }

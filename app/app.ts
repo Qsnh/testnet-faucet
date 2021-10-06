@@ -4,6 +4,7 @@ import * as zksync from 'zksync-web3';
 import { BigNumber, ethers } from 'ethers';
 import * as fs from 'fs';
 import cors from 'cors';
+import { sleep } from 'zksync-web3/build/utils';
 
 const port = 2880;
 
@@ -22,7 +23,7 @@ app.use(cors(corsOptions));
 // queue is a queue of tickets
 const { store, sendMoneyQueue, allowWithdrawalSet }: { 
     store: { [s: string]: { address?: string, name?: string, id_str?: string } },
-    sendMoneyQueue: { receiverAddress?: string, tokenAddress?: string}[],
+    sendMoneyQueue: string[],
     allowWithdrawalSet: { [s: string]: true },
 } = require('../state.json');
 
@@ -31,66 +32,110 @@ let nonce = undefined;
 const PROVIDER = new zksync.Provider(process.env.ZKS_PROVIDER_URL || "https://stage2-api.zksync.dev/web3");
 const WALLET = new zksync.Wallet(process.env.SECRET_KEY, PROVIDER);
 
-function getTokenAmount(tokenAddress: string) {
-    if (tokenAddress.toLowerCase() == "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee") { // ETH
-        return BigNumber.from(10).pow(15); // 0.001
-    } else if (tokenAddress.toLowerCase() == "0x7457fc3f89ac99837d44f60b7860691fb2f09bf5") { // wBTC
-        return BigNumber.from(10).pow(6); // 0.01
-    } else if(tokenAddress.toLowerCase() == "0xd2084ea2ae4bbe1424e4fe3cde25b713632fb988") { // BAT
-        return (BigNumber.from(10).pow(18)).mul(3000); // 3000
-    } else if(tokenAddress.toLowerCase() == "0xeb8f08a975ab53e34d8a0330e0d34de942c95926") { // USDC
-        return (BigNumber.from(10).pow(6)).mul(300); // 300
-    } else { // DAI
-        return (BigNumber.from(10).pow(18)).mul(300); // 300
-    }
-}
+const TOKENS = 
+[
+  {
+    address: "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee", // ETH
+    amount: BigNumber.from(10).pow(15), // 0.001
+  },
+  {
+    address: "0x7457fc3f89ac99837d44f60b7860691fb2f09bf5", // wBTC
+    amount: BigNumber.from(10).pow(6), // 0.01
+  },
+  {
+    address: "0xd2084ea2ae4bbe1424e4fe3cde25b713632fb988", // BAT
+    amount: BigNumber.from(10).pow(18).mul(3000), // 3000
+  },
+  {
+    address: "0xeb8f08a975ab53e34d8a0330e0d34de942c95926", // USDC
+    amount: BigNumber.from(10).pow(6).mul(300), // 300
+  },
+  {
+    address: "0x70a4fcf3e4c8591b5b4318cec5facbb96a604198", // DAI
+    amount: BigNumber.from(10).pow(18).mul(300), // 300
+  },
+];
+
 
 app.post('/ask_money', async (req, res) => {
-    if (nonce == undefined) {
-        nonce = await WALLET.getNonce();
-    }
-
     try {
         const receiverAddress = req.body['receiverAddress']?.trim()?.toLowerCase();
-        const tokenAddress = req.body['tokenAddress']?.trim()?.toLowerCase();
     
         if (receiverAddress == undefined) {
             return res.send('Error: missing receiver address');
         }
 
-        if (tokenAddress == undefined) {
-            return res.send('Error: missing token address');
-        }
-
         if (! /^0x([0-9a-fA-F]){40}$/.test(receiverAddress)) {
             return res.send('Error: invalid receiver address');
         }
-
-        if (! /^0x([0-9a-fA-F]){40}$/.test(tokenAddress)) {
-            return res.send('Error: invalid token address');
-        }
         
-        const transfer = await WALLET.transfer({
-            to: receiverAddress,
-            token: tokenAddress,
-            amount: getTokenAmount(tokenAddress),
-            feeToken: "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE",
-            nonce: nonce
-        });
-        await transfer.wait();
-        nonce += 1;
-        
-        console.log(`Transferred funds to ${receiverAddress}`);
+        sendMoneyQueue.push(receiverAddress);
 
-        return res.send(transfer.hash);
+        return res.send("success");
     } catch (e) {
         console.error("Error in ask_money:", e);
         return res.send("Error: internal error");
     }
 });
 
+async function startSendingMoneyFragile(): Promise<void> {
+    if (nonce == undefined) {
+        nonce = await WALLET.getNonce();
+    }
+
+    while (true) {
+        if (sendMoneyQueue.length === 0) {
+            await sleep(100);
+            continue;
+        }
+
+        const receiverAddress = sendMoneyQueue[0];
+
+        for (const { address, amount } of TOKENS) {
+            const transfer = await WALLET.transfer({
+                to: receiverAddress,
+                token: address,
+                amount: amount,
+                feeToken: "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE",
+                nonce: nonce
+            });
+
+            await transfer.wait();
+            nonce += 1;
+        }
+
+        sendMoneyQueue.shift();
+        console.log(`Transfered funds to ${receiverAddress}`);
+    }
+}
+
+async function startSendingMoney() {
+    let delay = 1000;
+    let startTime;
+    while (true) {
+        try {
+            startTime = Date.now();
+            await startSendingMoneyFragile();
+        } catch (e) {
+            const runningTime = Date.now() - startTime;
+
+            if (runningTime < 60000) {
+                delay = Math.min(delay * 2, 600000);
+            } else {
+                delay = 1000;
+            }
+
+            console.error(`Error in startSending money:`, e);
+
+            await sleep(delay);
+        }
+    }
+}
+
 // Start API
 app.listen(port, () => console.log(`App listening at http://localhost:${port}`));
+
+startSendingMoney();
 
 process.stdin.resume(); // Program will not close instantly
 
