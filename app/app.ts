@@ -27,8 +27,6 @@ const { store, sendMoneyQueue, allowWithdrawalSet }: {
     allowWithdrawalSet: { [s: string]: true },
 } = require('../state.json');
 
-const PROVIDER = new zksync.Provider(process.env.ZKS_PROVIDER_URL || "https://stage2-api.zksync.dev/web3");
-const WALLET = new zksync.Wallet(process.env.SECRET_KEY, PROVIDER);
 
 const TOKENS = 
 [
@@ -77,6 +75,9 @@ app.post('/ask_money', async (req, res) => {
 });
 
 async function startSendingMoneyFragile(): Promise<void> {
+    const provider = new zksync.Provider(process.env.ZKS_PROVIDER_URL || "https://stage2-api.zksync.dev/web3");
+    const wallet = new zksync.Wallet(process.env.SECRET_KEY, provider);
+
     while (true) {
         if (sendMoneyQueue.length === 0) {
             await sleep(100);
@@ -86,7 +87,7 @@ async function startSendingMoneyFragile(): Promise<void> {
         const receiverAddress = sendMoneyQueue[0];
 
         for (const { address, amount } of TOKENS) {
-            const transfer = await WALLET.transfer({
+            const transfer = await wallet.transfer({
                 to: receiverAddress,
                 token: address,
                 amount: amount,
