@@ -27,8 +27,6 @@ const { store, sendMoneyQueue, allowWithdrawalSet }: {
     allowWithdrawalSet: { [s: string]: true },
 } = require('../state.json');
 
-let nonce = undefined;
-
 const PROVIDER = new zksync.Provider(process.env.ZKS_PROVIDER_URL || "https://stage2-api.zksync.dev/web3");
 const WALLET = new zksync.Wallet(process.env.SECRET_KEY, PROVIDER);
 
@@ -79,10 +77,6 @@ app.post('/ask_money', async (req, res) => {
 });
 
 async function startSendingMoneyFragile(): Promise<void> {
-    if (nonce == undefined) {
-        nonce = await WALLET.getNonce();
-    }
-
     while (true) {
         if (sendMoneyQueue.length === 0) {
             await sleep(100);
@@ -97,11 +91,9 @@ async function startSendingMoneyFragile(): Promise<void> {
                 token: address,
                 amount: amount,
                 feeToken: "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE",
-                nonce: nonce
             });
 
             await transfer.wait();
-            nonce += 1;
         }
 
         sendMoneyQueue.shift();
