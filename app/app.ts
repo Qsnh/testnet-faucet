@@ -1,7 +1,7 @@
 import express from 'express';
 import bodyParser from 'body-parser';
 import * as zksync from 'zksync-web3';
-import { BigNumber, ethers } from 'ethers';
+import { BigNumber } from 'ethers';
 import { backOff } from 'exponential-backoff';
 import cors from 'cors';
 import { sleep } from 'zksync-web3/build/utils';
@@ -100,7 +100,7 @@ async function startSendingMoneyFragile(): Promise<void> {
                 });
                 const receipt = await backOff(receiptPromise);
 
-                if (receipt.status != 1) {
+                if (parseInt(receipt.status) != 1) {
                     throw new Error();
                 }
             }
