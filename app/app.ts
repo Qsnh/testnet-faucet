@@ -18,15 +18,7 @@ const corsOptions = {
 };
 app.use(cors(corsOptions));
 
-// Load state from state.json
-// store is a map from tickets to addresses
-// queue is a queue of tickets
-const { store, sendMoneyQueue, allowWithdrawalSet }: { 
-    store: { [s: string]: { address?: string, name?: string, id_str?: string } },
-    sendMoneyQueue: string[],
-    allowWithdrawalSet: { [s: string]: true },
-} = require('../state.json');
-
+const sendMoneyQueue: [string, any, any][] = [];
 
 const TOKENS = 
 [
@@ -54,6 +46,9 @@ const TOKENS =
 
 
 app.post('/ask_money', async (req, res) => {
+    const resolve = () => Promise.resolve(res.send("success"));
+    const reject = () => Promise.resolve(res.send("err"));
+
     try {
         const receiverAddress = req.body['receiverAddress']?.trim()?.toLowerCase();
     
@@ -64,13 +59,11 @@ app.post('/ask_money', async (req, res) => {
         if (! /^0x([0-9a-fA-F]){40}$/.test(receiverAddress)) {
             return res.send('Error: invalid receiver address');
         }
-        
-        sendMoneyQueue.push(receiverAddress);
 
-        return res.send("success");
+        sendMoneyQueue.push([receiverAddress, resolve, reject]);
     } catch (e) {
+        reject();
         console.error("Error in ask_money:", e);
-        return res.send("Error: internal error");
     }
 });
 
@@ -84,21 +77,26 @@ async function startSendingMoneyFragile(): Promise<void> {
             continue;
         }
 
-        const receiverAddress = sendMoneyQueue[0];
+        const [receiverAddress, promise, reject] = sendMoneyQueue[0];
 
-        for (const { address, amount } of TOKENS) {
-            const transfer = await wallet.transfer({
-                to: receiverAddress,
-                token: address,
-                amount: amount,
-                feeToken: "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE",
-            });
-
-            await transfer.wait();
+        try {
+            for (const { address, amount } of TOKENS) {
+                const transfer = await wallet.transfer({
+                    to: receiverAddress,
+                    token: address,
+                    amount: amount,
+                    feeToken: "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE",
+                });
+                await transfer.wait();
+            }
+    
+            console.log(`Transfered funds to ${receiverAddress}`);
+            promise();
+        } catch {
+            reject();
         }
 
         sendMoneyQueue.shift();
-        console.log(`Transfered funds to ${receiverAddress}`);
     }
 }
 
@@ -133,16 +131,6 @@ startSendingMoney();
 process.stdin.resume(); // Program will not close instantly
 
 function exitHandler(options, exitCode) {
-    if (options.cleanup) {
-        const state = {
-            store,
-            sendMoneyQueue,
-            allowWithdrawalSet,
-            // usedAddresses,
-        };
-        fs.writeFileSync("state.json", JSON.stringify(state, null, 2));
-    }
-
     if (exitCode || exitCode === 0) process.exit(exitCode);
     if (options.exit) process.exit();
 }
