@@ -91,14 +91,14 @@ async function startSendingMoneyFragile(): Promise<void> {
                     amount: amount,
                     feeToken: "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE",
                 });
-                const receiptPromise = provider.perform('getTransactionReceipt', { transactionHash: transfer.hash }).then((receipt) => {
+                const receiptPromise = () => provider.perform('getTransactionReceipt', { transactionHash: transfer.hash }).then((receipt) => {
                     if (receipt === null) {
                         console.debug('Retrying for hash', transfer.hash)
                         throw new Error();
                     }
                     return receipt;
                 });
-                const receipt = await backOff(() => receiptPromise);
+                const receipt = await backOff(receiptPromise);
 
                 if (receipt.status != 1) {
                     throw new Error();
