@@ -2,7 +2,7 @@ import express from 'express';
 import bodyParser from 'body-parser';
 import * as zksync from 'zksync-web3';
 import { BigNumber, ethers } from 'ethers';
-import * as fs from 'fs';
+import { backOff } from 'exponential-backoff';
 import cors from 'cors';
 import { sleep } from 'zksync-web3/build/utils';
 
@@ -12,46 +12,43 @@ const app: express.Application = express();
 app.use(bodyParser.json());
 
 const corsOptions = {
-   origin:'*', 
-   credentials:true,            //access-control-allow-credentials:true
-   optionSuccessStatus:200,
+    origin: '*',
+    credentials: true,            //access-control-allow-credentials:true
+    optionSuccessStatus: 200,
 };
 app.use(cors(corsOptions));
 
 const sendMoneyQueue: [string, any, any][] = [];
 
-const TOKENS = 
-[
-  {
-    address: "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee", // ETH
-    amount: BigNumber.from(10).pow(15), // 0.001
-  },
-  {
-    address: "0x7457fc3f89ac99837d44f60b7860691fb2f09bf5", // wBTC
-    amount: BigNumber.from(10).pow(6), // 0.01
-  },
-  {
-    address: "0xd2084ea2ae4bbe1424e4fe3cde25b713632fb988", // BAT
-    amount: BigNumber.from(10).pow(18).mul(3000), // 3000
-  },
-  {
-    address: "0xeb8f08a975ab53e34d8a0330e0d34de942c95926", // USDC
-    amount: BigNumber.from(10).pow(6).mul(300), // 300
-  },
-  {
-    address: "0x70a4fcf3e4c8591b5b4318cec5facbb96a604198", // DAI
-    amount: BigNumber.from(10).pow(18).mul(300), // 300
-  },
-];
+const TOKENS =
+    [
+        {
+            address: "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee", // ETH
+            amount: BigNumber.from(10).pow(15), // 0.001
+        },
+        {
+            address: "0x7457fc3f89ac99837d44f60b7860691fb2f09bf5", // wBTC
+            amount: BigNumber.from(10).pow(6), // 0.01
+        },
+        {
+            address: "0xd2084ea2ae4bbe1424e4fe3cde25b713632fb988", // BAT
+            amount: BigNumber.from(10).pow(18).mul(3000), // 3000
+        },
+        {
+            address: "0xeb8f08a975ab53e34d8a0330e0d34de942c95926", // USDC
+            amount: BigNumber.from(10).pow(6).mul(300), // 300
+        },
+        {
+            address: "0x70a4fcf3e4c8591b5b4318cec5facbb96a604198", // DAI
+            amount: BigNumber.from(10).pow(18).mul(300), // 300
+        },
+    ];
 
 
 app.post('/ask_money', async (req, res) => {
-    const resolve = () => Promise.resolve(res.send("success"));
-    const reject = () => Promise.resolve(res.send("err"));
-
     try {
         const receiverAddress = req.body['receiverAddress']?.trim()?.toLowerCase();
-    
+
         if (receiverAddress == undefined) {
             return res.send('Error: missing receiver address');
         }
@@ -60,10 +57,17 @@ app.post('/ask_money', async (req, res) => {
             return res.send('Error: invalid receiver address');
         }
 
-        sendMoneyQueue.push([receiverAddress, resolve, reject]);
+        try {
+            await new Promise((resolve, reject) => {
+                sendMoneyQueue.push([receiverAddress, resolve, reject])
+            });
+            res.send("success");
+        } catch (err) {
+            res.status(500).send("error");
+        }
     } catch (e) {
-        reject();
         console.error("Error in ask_money:", e);
+        res.status(500).send("error");
     }
 });
 
@@ -77,7 +81,7 @@ async function startSendingMoneyFragile(): Promise<void> {
             continue;
         }
 
-        const [receiverAddress, promise, reject] = sendMoneyQueue[0];
+        const [receiverAddress, resolve, reject] = sendMoneyQueue[0];
 
         try {
             for (const { address, amount } of TOKENS) {
@@ -87,11 +91,22 @@ async function startSendingMoneyFragile(): Promise<void> {
                     amount: amount,
                     feeToken: "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE",
                 });
-                await transfer.wait();
+                const receiptPromise = provider.perform('getTransactionReceipt', { transactionHash: transfer.hash }).then((receipt) => {
+                    if (receipt === null) {
+                        console.debug('Retrying for hash', transfer.hash)
+                        throw new Error();
+                    }
+                    return receipt;
+                });
+                const receipt = await backOff(() => receiptPromise);
+
+                if (receipt.status != 1) {
+                    throw new Error();
+                }
             }
-    
-            console.log(`Transfered funds to ${receiverAddress}`);
-            promise();
+
+            console.log(`Transferred funds to ${receiverAddress}`);
+            resolve();
         } catch {
             reject();
         }
@@ -136,14 +151,14 @@ function exitHandler(options, exitCode) {
 }
 
 // do something when app is closing
-process.on('exit', exitHandler.bind(null,{cleanup:true}));
+process.on('exit', exitHandler.bind(null, { cleanup: true }));
 
 // catches ctrl+c event
-process.on('SIGINT', exitHandler.bind(null, {exit:true}));
+process.on('SIGINT', exitHandler.bind(null, { exit: true }));
 
 // catches "kill pid" (for example: nodemon restart)
-process.on('SIGUSR1', exitHandler.bind(null, {exit:true}));
-process.on('SIGUSR2', exitHandler.bind(null, {exit:true}));
+process.on('SIGUSR1', exitHandler.bind(null, { exit: true }));
+process.on('SIGUSR2', exitHandler.bind(null, { exit: true }));
 
 // catches uncaught exceptions
-process.on('uncaughtException', exitHandler.bind(null, {exit:true}));
+process.on('uncaughtException', exitHandler.bind(null, { exit: true }));

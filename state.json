@@ -1,18 +1,5 @@
 {
   "store": {},
-  "sendMoneyQueue": [
-    [
-      "0x812cccc53fdf293ea50b7573536e34128ea02c9d",
-      {}
-    ],
-    [
-      "0x812cccc53fdf293ea50b7573536e34128ea02c9d",
-      {}
-    ],
-    [
-      "0x812cccc53fdf293ea50b7573536e34128ea02c9d",
-      {}
-    ]
-  ],
+  "sendMoneyQueue": [],
   "allowWithdrawalSet": {}
 }
