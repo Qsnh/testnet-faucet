@@ -21,28 +21,28 @@ app.use(cors(corsOptions));
 const sendMoneyQueue: [string, any, any][] = [];
 
 const TOKENS =
-    [
-        {
-            address: "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee", // ETH
-            amount: BigNumber.from(10).pow(15), // 0.001
-        },
-        {
-            address: "0x7457fc3f89ac99837d44f60b7860691fb2f09bf5", // wBTC
-            amount: BigNumber.from(10).pow(6), // 0.01
-        },
-        {
-            address: "0xd2084ea2ae4bbe1424e4fe3cde25b713632fb988", // BAT
-            amount: BigNumber.from(10).pow(18).mul(3000), // 3000
-        },
-        {
-            address: "0xeb8f08a975ab53e34d8a0330e0d34de942c95926", // USDC
-            amount: BigNumber.from(10).pow(6).mul(300), // 300
-        },
-        {
-            address: "0x70a4fcf3e4c8591b5b4318cec5facbb96a604198", // DAI
-            amount: BigNumber.from(10).pow(18).mul(300), // 300
-        },
-    ];
+[
+    {
+        address: "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee", // ETH
+        amount: BigNumber.from(10).pow(15), // 0.001
+    },
+    {
+        address: "0x7457fc3f89ac99837d44f60b7860691fb2f09bf5", // wBTC
+        amount: BigNumber.from(10).pow(6), // 0.01
+    },
+    {
+        address: "0x4da8d0795830f75be471f072a034d42c369b5d0a", // LINK
+        amount: BigNumber.from(10).pow(18).mul(100), // 100
+    },
+    {
+        address: "0xeb8f08a975ab53e34d8a0330e0d34de942c95926", // USDC
+        amount: BigNumber.from(10).pow(6).mul(300), // 300
+    },
+    {
+        address: "0x70a4fcf3e4c8591b5b4318cec5facbb96a604198", // DAI
+        amount: BigNumber.from(10).pow(18).mul(300), // 300
+    },
+];
 
 
 app.post('/ask_money', async (req, res) => {
