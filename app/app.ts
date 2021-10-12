@@ -18,7 +18,11 @@ const corsOptions = {
 };
 app.use(cors(corsOptions));
 
-const sendMoneyQueue: [string, any, any][] = [];
+const SECRET_KEYS = process.env.SECRET_KEYS!.split(',');
+const QUEUES_NUMBER = SECRET_KEYS.length;
+const sendMoneyQueue: [string, any, any][][] = Array.from(Array(QUEUES_NUMBER), () => []);
+
+let current_queue_number = 0;
 
 const TOKENS =
 [
@@ -57,9 +61,13 @@ app.post('/ask_money', async (req, res) => {
             return res.send('Error: invalid receiver address');
         }
 
+        const queue_num = current_queue_number % QUEUES_NUMBER;
+        
+        current_queue_number += 1;
+
         try {
             await new Promise((resolve, reject) => {
-                sendMoneyQueue.push([receiverAddress, resolve, reject])
+                sendMoneyQueue[queue_num].push([receiverAddress, resolve, reject])
             });
             res.send("success");
         } catch (err) {
@@ -71,17 +79,17 @@ app.post('/ask_money', async (req, res) => {
     }
 });
 
-async function startSendingMoneyFragile(): Promise<void> {
+async function startSendingMoneyFragile(queueNumber: number): Promise<void> {
     const provider = new zksync.Provider(process.env.ZKS_PROVIDER_URL || "https://stage2-api.zksync.dev/web3");
-    const wallet = new zksync.Wallet(process.env.SECRET_KEY, provider);
+    const wallet = new zksync.Wallet(SECRET_KEYS[queueNumber], provider);
 
     while (true) {
-        if (sendMoneyQueue.length === 0) {
+        if (sendMoneyQueue[queueNumber].length === 0) {
             await sleep(100);
             continue;
         }
 
-        const [receiverAddress, resolve, reject] = sendMoneyQueue[0];
+        const [receiverAddress, resolve, reject] = sendMoneyQueue[queueNumber][0];
 
         try {
             for (const { address, amount } of TOKENS) {
@@ -107,21 +115,22 @@ async function startSendingMoneyFragile(): Promise<void> {
 
             console.log(`Transferred funds to ${receiverAddress}`);
             resolve();
-        } catch {
+        } catch(err) {
+            console.log(`Error in startSendingMoneyFragile ${err}`);
             reject();
         }
 
-        sendMoneyQueue.shift();
+        sendMoneyQueue[queueNumber].shift();
     }
 }
 
-async function startSendingMoney() {
+async function startSendingMoney(queueNumber: number) {
     let delay = 1000;
     let startTime;
     while (true) {
         try {
             startTime = Date.now();
-            await startSendingMoneyFragile();
+            await startSendingMoneyFragile(queueNumber);
         } catch (e) {
             const runningTime = Date.now() - startTime;
 
@@ -141,7 +150,9 @@ async function startSendingMoney() {
 // Start API
 app.listen(port, () => console.log(`App listening at http://localhost:${port}`));
 
-startSendingMoney();
+for (let i=0;i<QUEUES_NUMBER;i++) {
+    startSendingMoney(i);
+}
 
 process.stdin.resume(); // Program will not close instantly
 
