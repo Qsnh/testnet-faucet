@@ -27,10 +27,6 @@ let current_queue_number = 0;
 const TOKENS =
 [
     {
-        address: "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee", // ETH
-        amount: BigNumber.from(10).pow(15), // 0.001
-    },
-    {
         address: "0x7457fc3f89ac99837d44f60b7860691fb2f09bf5", // wBTC
         amount: BigNumber.from(10).pow(6), // 0.01
     },
