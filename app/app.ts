@@ -93,7 +93,7 @@ async function startSendingMoneyFragile(queueNumber: number): Promise<void> {
                     to: receiverAddress,
                     token: address,
                     amount: amount,
-                    feeToken: "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE",
+                    feeToken: address,
                 });
                 const receiptPromise = () => provider.perform('getTransactionReceipt', { transactionHash: transfer.hash }).then((receipt) => {
                     if (receipt === null) {
@@ -105,7 +105,7 @@ async function startSendingMoneyFragile(queueNumber: number): Promise<void> {
                 const receipt = await backOff(receiptPromise);
 
                 if (parseInt(receipt.status) != 1) {
-                    throw new Error();
+                    throw new Error(`Problems with address ${wallet.address}`);
                 }
             }
 
