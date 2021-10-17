@@ -88,22 +88,29 @@ async function startSendingMoneyFragile(queueNumber: number): Promise<void> {
         const [receiverAddress, resolve, reject] = sendMoneyQueue[queueNumber][0];
 
         try {
+            const hashes = [];
+            let nonce = await wallet.getTransactionCount();
             for (const { address, amount } of TOKENS) {
                 const transfer = await wallet.transfer({
                     to: receiverAddress,
                     token: address,
                     amount: amount,
                     feeToken: address,
+                    nonce,
                 });
-                const receiptPromise = () => provider.perform('getTransactionReceipt', { transactionHash: transfer.hash }).then((receipt) => {
+                hashes.push(transfer.hash);
+                nonce += 1;
+            }
+
+            for (const txHash of hashes) {
+                const receiptPromise = () => provider.perform('getTransactionReceipt', { transactionHash: txHash }).then((receipt) => {
                     if (receipt === null) {
-                        console.debug('Retrying for hash', transfer.hash)
+                        console.debug('Retrying for hash', txHash)
                         throw new Error();
                     }
                     return receipt;
                 });
                 const receipt = await backOff(receiptPromise);
-
                 if (parseInt(receipt.status) != 1) {
                     throw new Error(`Problems with address ${wallet.address}`);
                 }

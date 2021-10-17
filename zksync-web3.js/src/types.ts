@@ -20,7 +20,8 @@ export enum AccountType {
 
 export enum PriorityQueueType {
     Deque = 0,
-    Heap = 1
+    HeapBuffer = 1,
+    Heap = 2
 }
 
 export enum PriorityOpTree {
