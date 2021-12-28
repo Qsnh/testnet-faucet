@@ -104,7 +104,7 @@ async function startSendingMoneyFragile(queueNumber: number): Promise<void> {
 
             for (const txHash of hashes) {
                 const receiptPromise = () => provider.perform('getTransactionReceipt', { transactionHash: txHash }).then((receipt) => {
-                    if (receipt === null) {
+                    if (receipt === null || receipt.status === null) {
                         console.debug('Retrying for hash', txHash)
                         throw new Error();
                     }
