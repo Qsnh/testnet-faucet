@@ -96,7 +96,7 @@ async function startSendingMoneyFragile(queueNumber: number): Promise<void> {
                     token: address,
                     amount: amount,
                     feeToken: address,
-                    nonce,
+                    nonce: nonce.toString(), // TODO: remove `toString` after update SDK
                 });
                 hashes.push(transfer.hash);
                 nonce += 1;
