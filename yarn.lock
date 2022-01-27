@@ -982,7 +982,7 @@ yn@3.1.1:
   resolved "https://registry.yarnpkg.com/yn/-/yn-3.1.1.tgz#1e87401a09d767c1d5eab26a6e4c185182d2eb50"
   integrity sha512-Ux4ygGWsu2c7isFWe8Yu1YluJmqVhxqK2cLXNQA5AcC3QfbGNpM7fu0Y8b/z16pXLnFxZYvWhd3fhBY9DLmC6Q==
 
-zksync-web3@^0.2.7:
-  version "0.2.7"
-  resolved "https://registry.yarnpkg.com/zksync-web3/-/zksync-web3-0.2.7.tgz#d64bbf950dda62175fa436ec52915705239b0c0f"
-  integrity sha512-WWL2W9AsHlROnSfjH8pgCBzVMrNEtEvVL24spDclHq+VMu7Kh0Vbxad0ESG/AbUU5SLJjcNtlgcL5CDELNzCKQ==
+zksync-web3@^0.3.2:
+  version "0.3.2"
+  resolved "https://registry.yarnpkg.com/zksync-web3/-/zksync-web3-0.3.2.tgz#e224a6817dce062355dbc102cf9e03fa7b1772ac"
+  integrity sha512-RQ09m/NbZGUDxqhK3DXqzcWR5n/nBLG98KRGOfXX2XUBArVIF+lncXX0MIlO6vH1CnlaqRsNtTqaIttx/AiFGQ==
