@@ -1,0 +1,23 @@
+{
+  "name": "faucet-mint",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "dependencies": {
+    "commander": "^9.0.0",
+    "ethers": "^5.0.32",
+    "isomorphic-fetch": "^3.0.0",
+    "ts-node": "^9.1.1",
+    "typescript": "^4.2.3",
+    "zksync-web3": "^0.3.0"
+  },
+  "scripts": {
+    "start": "ts-node src/index.ts",
+    "lint": "yarn prettier --config prettier-config.js --check src/*.ts",
+    "lint:fix": "yarn prettier --config prettier-config.js --write src/*.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^14.14.35",
+    "prettier": "^2.5.1"
+  }
+}
