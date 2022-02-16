@@ -1,10 +1,10 @@
 import express from 'express';
 import bodyParser from 'body-parser';
 import * as zksync from 'zksync-web3';
-import { BigNumber } from 'ethers';
 import { backOff } from 'exponential-backoff';
 import cors from 'cors';
 import { sleep } from 'zksync-web3/build/utils';
+import tokens from '../tokens-config.js';
 
 const port = 2880;
 
@@ -21,29 +21,9 @@ app.use(cors(corsOptions));
 const SECRET_KEYS = process.env.SECRET_KEYS!.split(',');
 const QUEUES_NUMBER = SECRET_KEYS.length;
 const sendMoneyQueue: [string, any, any][][] = Array.from(Array(QUEUES_NUMBER), () => []);
+const network = process.env.NETWORK || 'goerli';
 
 let current_queue_number = 0;
-
-const TOKENS =
-[
-    {
-        address: "0x7457fc3f89ac99837d44f60b7860691fb2f09bf5", // wBTC
-        amount: BigNumber.from(10).pow(6), // 0.01
-    },
-    {
-        address: "0x4da8d0795830f75be471f072a034d42c369b5d0a", // LINK
-        amount: BigNumber.from(10).pow(18).mul(100), // 100
-    },
-    {
-        address: "0xeb8f08a975ab53e34d8a0330e0d34de942c95926", // USDC
-        amount: BigNumber.from(10).pow(6).mul(300), // 300
-    },
-    {
-        address: "0x70a4fcf3e4c8591b5b4318cec5facbb96a604198", // DAI
-        amount: BigNumber.from(10).pow(18).mul(300), // 300
-    },
-];
-
 
 app.post('/ask_money', async (req, res) => {
     try {
@@ -90,13 +70,13 @@ async function startSendingMoneyFragile(queueNumber: number): Promise<void> {
         try {
             const hashes = [];
             let nonce = await wallet.getTransactionCount();
-            for (const { address, amount } of TOKENS) {
+            for (const { address, amount } of tokens[network]) {
                 const transfer = await wallet.transfer({
                     to: receiverAddress,
                     token: address,
                     amount: amount,
                     feeToken: address,
-                    nonce: nonce.toString(), // TODO: remove `toString` after update SDK
+                    nonce
                 });
                 hashes.push(transfer.hash);
                 nonce += 1;

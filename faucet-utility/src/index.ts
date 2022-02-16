@@ -2,7 +2,6 @@ import { Command } from 'commander';
 import { ethers } from 'ethers';
 import * as zksync from 'zksync-web3';
 import {
-    DEFAULT_TOKENS,
     DEFAULT_ACCOUNTS,
     ALL_NETWORKS,
     isZkSyncNetwork,
@@ -12,6 +11,7 @@ import {
     DEFAULT_MINT_AMOUNT
 } from './utils';
 import providerConfig from './provider-config';
+import tokensConfig from '../../tokens-config';
 
 async function mintTokensL1(wallet: zksync.Wallet, tokens: string[]) {
     console.info('Mint tokens on L1');
@@ -65,21 +65,23 @@ async function main() {
         .option('--custom-tokens <tokens>')
         .option('--ethereum-node-url <url>')
         .action(async (cmd) => {
-            const privateKey = cmd.privateKey;
             const network = cmd.network;
-            const tokens = cmd.customTokens ? cmd.customTokens : DEFAULT_TOKENS;
+
+            if (!network) {
+                throw new Error('Network not provided');
+            } else if (!isZkSyncNetwork(network)) {
+                throw new Error(`Unsupported network. Look at the list of available networks: ${ALL_NETWORKS}`);
+            }
+            const defaultTokens = tokensConfig[toEthNetwork(network)].map((token: any) => token.address);
+            const tokens = cmd.customTokens ? cmd.customTokens : defaultTokens;
+
+            const privateKey = cmd.privateKey;
             const accounts = cmd.accounts ? cmd.accounts : DEFAULT_ACCOUNTS;
 
             if (!privateKey) {
                 throw new Error('Private key not provided');
             } else if (!ethers.utils.isHexString(privateKey, 32)) {
                 throw new Error('Private key must be a valid hexadecimal string of length 32');
-            }
-
-            if (!network) {
-                throw new Error('Network not provided');
-            } else if (!isZkSyncNetwork(network)) {
-                throw new Error(`Unsupported network. Look at the list of available networks: ${ALL_NETWORKS}`);
             }
 
             const providerL1 = cmd.ethereumNodeUrl
