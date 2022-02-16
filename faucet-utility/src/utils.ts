@@ -6,13 +6,6 @@ export const DEFAULT_MINT_AMOUNT = BigNumber.from(2).pow(160);
 
 export const DEFAULT_DEPOSIT_AMOUNT = BigNumber.from(2).pow(160);
 
-export const DEFAULT_TOKENS = [
-    '0x7457fc3f89ac99837d44f60b7860691fb2f09bf5', // wBTC
-    '0x4da8d0795830f75be471f072a034d42c369b5d0a', // LINK
-    '0xeb8f08a975ab53e34d8a0330e0d34de942c95926', // USDC
-    '0x70a4fcf3e4c8591b5b4318cec5facbb96a604198' // DAI
-];
-
 export const DEFAULT_ACCOUNTS = [
     '0x6c10d9c1744f149d4b17660e14faa247964749c7',
     '0xc6464bf44801f25d68f43e3d4a44ba9cd6259147',
@@ -26,9 +19,9 @@ export const DEFAULT_ACCOUNTS = [
     '0x96d791a6b1a1045f83b7f238dcab7e49e6269ca0'
 ];
 
-export type ZkSyncNetwork = 'rinkeby2' | 'stage2';
+export type ZkSyncNetwork = 'rinkeby2' | 'stage2' | 'testnet2';
 
-export const ALL_NETWORKS: ZkSyncNetwork[] = ['rinkeby2', 'stage2'];
+export const ALL_NETWORKS: ZkSyncNetwork[] = ['rinkeby2', 'stage2', 'testnet2'];
 
 export function isZkSyncNetwork(network: ZkSyncNetwork) {
     return ALL_NETWORKS.includes(network);
@@ -39,6 +32,8 @@ export function toEthNetwork(network: ZkSyncNetwork) {
         return 'rinkeby';
     } else if (network == 'stage2') {
         return 'rinkeby';
+    } else if (network == 'testnet2') {
+        return 'goerli';
     } else {
         throw new Error(`Unexpected zkSync network: ${network}`);
     }

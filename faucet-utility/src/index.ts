@@ -2,7 +2,6 @@ import { Command } from 'commander';
 import { ethers } from 'ethers';
 import * as zksync from 'zksync-web3';
 import {
-    DEFAULT_TOKENS,
     DEFAULT_ACCOUNTS,
     ALL_NETWORKS,
     isZkSyncNetwork,
@@ -12,28 +11,26 @@ import {
     DEFAULT_MINT_AMOUNT
 } from './utils';
 import providerConfig from './provider-config';
+import tokensConfig from '../../tokens-config';
 
 async function mintTokensL1(wallet: zksync.Wallet, tokens: string[]) {
     console.info('Mint tokens on L1');
 
-    const promises = [];
     const mainContract = await wallet.getMainContract();
     for (const token of tokens) {
         const erc20 = new ethers.Contract(token, ERC20_INTERFACE, wallet._signerL1());
         if (erc20.balanceOf(wallet.address) < DEFAULT_DEPOSIT_AMOUNT.mul(100)) {
             console.info(`\tMint ${token} token`);
             const mintTx = await erc20.mint(DEFAULT_MINT_AMOUNT);
-            promises.push(mintTx.wait());
+            await mintTx.wait();
         }
 
-        if ((await erc20.allowance(wallet.address, mainContract.address)) > ethers.constants.MaxUint256.div(2)) {
+        if ((await erc20.allowance(wallet.address, mainContract.address)) < ethers.constants.MaxUint256.div(2)) {
             console.info(`\tapprove for ${token} token`);
             const approveTx = await wallet.approveERC20(token, ethers.constants.MaxUint256);
-            promises.push(approveTx.wait());
+            await approveTx.wait();
         }
     }
-
-    await Promise.all(promises);
 }
 
 async function depositTokens(wallet: zksync.Wallet, tokens: string[], accounts: string[]) {
@@ -65,21 +62,23 @@ async function main() {
         .option('--custom-tokens <tokens>')
         .option('--ethereum-node-url <url>')
         .action(async (cmd) => {
-            const privateKey = cmd.privateKey;
             const network = cmd.network;
-            const tokens = cmd.customTokens ? cmd.customTokens : DEFAULT_TOKENS;
+
+            if (!network) {
+                throw new Error('Network not provided');
+            } else if (!isZkSyncNetwork(network)) {
+                throw new Error(`Unsupported network. Look at the list of available networks: ${ALL_NETWORKS}`);
+            }
+            const defaultTokens = tokensConfig[toEthNetwork(network)].map((token: any) => token.address);
+            const tokens = cmd.customTokens ? cmd.customTokens : defaultTokens;
+
+            const privateKey = cmd.privateKey;
             const accounts = cmd.accounts ? cmd.accounts : DEFAULT_ACCOUNTS;
 
             if (!privateKey) {
                 throw new Error('Private key not provided');
             } else if (!ethers.utils.isHexString(privateKey, 32)) {
                 throw new Error('Private key must be a valid hexadecimal string of length 32');
-            }
-
-            if (!network) {
-                throw new Error('Network not provided');
-            } else if (!isZkSyncNetwork(network)) {
-                throw new Error(`Unsupported network. Look at the list of available networks: ${ALL_NETWORKS}`);
             }
 
             const providerL1 = cmd.ethereumNodeUrl
