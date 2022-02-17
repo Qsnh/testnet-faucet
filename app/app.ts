@@ -4,7 +4,7 @@ import * as zksync from 'zksync-web3';
 import { backOff } from 'exponential-backoff';
 import cors from 'cors';
 import { sleep } from 'zksync-web3/build/utils';
-import tokens from '../tokens-config.js';
+import tokens from '../tokens-config';
 
 const port = 2880;
 
