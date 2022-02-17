@@ -15,35 +15,44 @@ import tokensConfig from '../../tokens-config';
 
 async function mintTokensL1(wallet: zksync.Wallet, tokens: string[]) {
     console.info('Mint tokens on L1');
-
     const mainContract = await wallet.getMainContract();
+    let nonce = await wallet._signerL1().getTransactionCount();
+    let promises = [];
     for (const token of tokens) {
         const erc20 = new ethers.Contract(token, ERC20_INTERFACE, wallet._signerL1());
-        if (erc20.balanceOf(wallet.address) < DEFAULT_DEPOSIT_AMOUNT.mul(100)) {
+
+        const balance = await erc20.balanceOf(wallet.address);
+        if (DEFAULT_DEPOSIT_AMOUNT.mul(100).gt(balance)) {
             console.info(`\tMint ${token} token`);
-            const mintTx = await erc20.mint(DEFAULT_MINT_AMOUNT);
-            await mintTx.wait();
+            const mintTx = await erc20.mint(wallet.address, DEFAULT_MINT_AMOUNT, { nonce });
+            promises.push(mintTx.wait());
+            nonce++;
         }
 
-        if ((await erc20.allowance(wallet.address, mainContract.address)) < ethers.constants.MaxUint256.div(2)) {
+        const allowance = await erc20.allowance(wallet.address, mainContract.address);
+        if (ethers.constants.MaxUint256.div(2).gt(allowance)) {
             console.info(`\tapprove for ${token} token`);
-            const approveTx = await wallet.approveERC20(token, ethers.constants.MaxUint256);
-            await approveTx.wait();
+            const approveTx = await wallet.approveERC20(token, ethers.constants.MaxUint256, { nonce });
+            promises.push(approveTx.wait());
+            nonce++;
         }
     }
+
+    await Promise.all(promises);
 }
 
 async function depositTokens(wallet: zksync.Wallet, tokens: string[], accounts: string[]) {
     console.info('Deposit tokens to faucet accounts');
-
-    const promises = [];
+    let nonce = await wallet._signerL1().getTransactionCount();
+    let promises = [];
     for (const token of tokens) {
         for (const to of accounts) {
             const balance = await wallet.provider.getBalance(to, undefined, token);
             if (balance.lt(DEFAULT_DEPOSIT_AMOUNT.div(1000))) {
                 console.info(`\tdeposit ${token} token for ${to} account`);
-                const tx = await wallet.deposit({ token, to, amount: DEFAULT_DEPOSIT_AMOUNT });
+                const tx = await wallet.deposit({ token, to, amount: DEFAULT_DEPOSIT_AMOUNT, overrides: { nonce } });
                 promises.push(tx.wait());
+                nonce++;
             }
         }
     }
