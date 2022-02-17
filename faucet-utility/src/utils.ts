@@ -4,7 +4,7 @@ export const ERC20_INTERFACE = new ethers.utils.Interface(require('../abi/IERC20
 
 export const DEFAULT_MINT_AMOUNT = BigNumber.from(2).pow(160);
 
-export const DEFAULT_DEPOSIT_AMOUNT = BigNumber.from(2).pow(160);
+export const DEFAULT_DEPOSIT_AMOUNT = BigNumber.from(2).pow(150);
 
 export const DEFAULT_ACCOUNTS = [
     '0x6c10d9c1744f149d4b17660e14faa247964749c7',
