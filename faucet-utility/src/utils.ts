@@ -31,7 +31,7 @@ export function toEthNetwork(network: ZkSyncNetwork) {
     if (network == 'rinkeby2') {
         return 'rinkeby';
     } else if (network == 'stage2') {
-        return 'rinkeby';
+        return 'goerli';
     } else if (network == 'testnet2') {
         return 'goerli';
     } else {
