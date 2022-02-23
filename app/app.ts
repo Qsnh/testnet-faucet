@@ -22,6 +22,7 @@ const SECRET_KEYS = process.env.SECRET_KEYS!.split(',');
 const QUEUES_NUMBER = SECRET_KEYS.length;
 const sendMoneyQueue: [string, any, any][][] = Array.from(Array(QUEUES_NUMBER), () => []);
 const network = process.env.NETWORK || 'goerli';
+const addresses = {};
 
 let current_queue_number = 0;
 
@@ -37,6 +38,11 @@ app.post('/ask_money', async (req, res) => {
             return res.send('Error: invalid receiver address');
         }
 
+        if(addresses[receiverAddress]) {
+            return res.send('Error: address has already received money');
+        }
+        addresses[receiverAddress] = true;
+
         const queue_num = current_queue_number % QUEUES_NUMBER;
         
         current_queue_number += 1;
@@ -47,6 +53,7 @@ app.post('/ask_money', async (req, res) => {
             });
             res.send("success");
         } catch (err) {
+            addresses[receiverAddress] = false;
             res.status(500).send("error");
         }
     } catch (e) {
