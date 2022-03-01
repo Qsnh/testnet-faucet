@@ -1,18 +1,17 @@
-name: publish faucet docker image
+name: publish faucet docker image and deploy to testnet2
 
 on:
-  workflow_dispatch:
+  push:
     branches:
       - 'main'
 
 jobs:
   push_to_registry:
-    if: github.event.pull_request.merged == true || github.event_name == 'workflow_dispatch'
     name: Push Docker image to Docker Hub
-    runs-on: [self-hosted, ci-runner]    
+    runs-on: [self-hosted, ci-runner]
     steps:
       - uses: actions/checkout@v2
-      
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v1
 
@@ -29,3 +28,49 @@ jobs:
           tags: "matterlabs/faucet:latest"
           file: Dockerfile
           no-cache: true
+
+  deploy:
+    name: Deploy
+    needs: [push_to_registry]
+    runs-on: [k8s, deployer, "${{ needs.setup.outputs.runner }}"]
+    container:
+      image: dysnix/kubectl:v1.20-gcloud
+      volumes:
+        - /var/run/secrets/tokens:/var/run/secrets/tokens
+    env:
+      DEPLOY_APPS: -l name=faucet
+      HFENV: testnet2
+    steps:
+      - id: kubeConf
+        run: |
+          kube_token=$(cat /var/run/secrets/tokens/gha-deployer-testnet)
+          echo "::add-mask::$kube_token"
+          echo "::set-output name=token::$kube_token"
+      - name: Generate ~/.kube/config
+        run: |
+          kubectl config set-credentials user --token=${{ steps.kubeConf.outputs.token }}
+          kubectl config set-cluster default --server=https://kubernetes.default --insecure-skip-tls-verify=true
+          kubectl config set-context matterlabs-zksync-testnet --user=user --cluster=default
+          kubectl config use-context matterlabs-zksync-testnet
+      - name: Clone helm-infra
+        uses: actions/checkout@v2
+        with:
+          repository: matter-labs/helm-infra
+          path: helm-infra
+          token: ${{ secrets.GH_TOKEN }}
+      -
+        name: Deploy Zksync
+        working-directory: helm-infra
+        run: |
+          UPDATE_REPOS=y helmfile -e $HFENV repos
+          helmfile -e $HFENV $DEPLOY_APPS apply --args "timeout 180s"
+      -
+        if: failure() || cancelled()
+        name: Notify to Mattermost (on unsuccessful deploys)
+        uses: tferreira/matterfy@releases/v1
+        with:
+          type: ${{ job.status }}
+          job_name: '*Deployment faucet to "testnet2" failed*'
+          icon_emoji: octocat
+          channel: 'matterlabs-alerts'
+          url: ${{ secrets.MATTERMOST_WEBHOOK }}
