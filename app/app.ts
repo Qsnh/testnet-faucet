@@ -24,7 +24,9 @@ const sendMoneyQueue: [string, any, any][][] = Array.from(Array(QUEUES_NUMBER), 
 const network = process.env.NETWORK || 'goerli';
 const addresses = {};
 
-let current_queue_number = 0;
+let currentQueueNumber = 0;
+// We assume that queues are ok at the beginning.
+let availableQueueNumbers = [...Array(QUEUES_NUMBER).keys()];
 
 app.post('/ask_money', async (req, res) => {
     try {
@@ -38,18 +40,22 @@ app.post('/ask_money', async (req, res) => {
             return res.send('Error: invalid receiver address');
         }
 
+        if (availableQueueNumbers.length === 0) {
+            return res.status(500).send("Error: faucet is empty");
+        }
+
         if(addresses[receiverAddress]) {
             return res.send('Error: address has already received money');
         }
         addresses[receiverAddress] = true;
 
-        const queue_num = current_queue_number % QUEUES_NUMBER;
+        const queueNum = availableQueueNumbers[currentQueueNumber % availableQueueNumbers.length];
         
-        current_queue_number += 1;
+        currentQueueNumber += 1;
 
         try {
             await new Promise((resolve, reject) => {
-                sendMoneyQueue[queue_num].push([receiverAddress, resolve, reject])
+                sendMoneyQueue[queueNum].push([receiverAddress, resolve, reject])
             });
             res.send("success");
         } catch (err) {
@@ -59,6 +65,21 @@ app.post('/ask_money', async (req, res) => {
     } catch (e) {
         console.error("Error in ask_money:", e);
         res.status(500).send("error");
+    }
+});
+
+const availableTokens: any[] = tokens[network].map((token: any) => {
+    return {
+        address: token.address,
+        symbol: token.symbol
+    };
+});
+
+app.get('/available_tokens', async (req, res) => {
+    if (availableQueueNumbers.length > 0) {
+        res.send(availableTokens);
+    } else {
+        res.send([]);
     }
 });
 
@@ -137,12 +158,46 @@ async function startSendingMoney(queueNumber: number) {
     }
 }
 
+async function startUpdatingAvailableQueues() {
+    let interval = 30000;
+    while (true) {
+        try {
+            const provider = new zksync.Provider(process.env.ZKS_PROVIDER_URL || "https://stage2-api.zksync.dev/web3");
+            let newAvailableQueues = [];
+            for (let queueNumber = 0; queueNumber < QUEUES_NUMBER; ++queueNumber) {
+                const walletAddress = (new zksync.Wallet(SECRET_KEYS[queueNumber], provider)).address;
+                let promiseArray = [];
+                for (const token of tokens[network]) {
+                    promiseArray.push(provider.getBalance(walletAddress, "latest", token.address));
+                }
+                const balances = await Promise.all(promiseArray);
+                let isEnoughBalances = true;
+                for (let i = 0; i < balances.length; ++i) {
+                    if (balances[i].lt(tokens[network][i].amount)) {
+                        isEnoughBalances = false;
+                        break;
+                    }
+                }
+                if (isEnoughBalances) {
+                    newAvailableQueues.push(queueNumber);
+                }
+            }
+            availableQueueNumbers = newAvailableQueues;
+        }
+        catch(e) {
+            console.error(`Error in startUpdatingAvailableQueues:`, e);
+        }
+        await sleep(interval);
+    }
+}
+
 // Start API
 app.listen(port, () => console.log(`App listening at http://localhost:${port}`));
 
 for (let i=0;i<QUEUES_NUMBER;i++) {
     startSendingMoney(i);
 }
+startUpdatingAvailableQueues();
 
 process.stdin.resume(); // Program will not close instantly
 
