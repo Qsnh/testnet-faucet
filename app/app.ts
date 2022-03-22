@@ -33,11 +33,11 @@ app.post('/ask_money', async (req, res) => {
         const receiverAddress = req.body['receiverAddress']?.trim()?.toLowerCase();
 
         if (receiverAddress == undefined) {
-            return res.send('Error: missing receiver address');
+            return res.status(400).send('Error: missing receiver address');
         }
 
         if (! /^0x([0-9a-fA-F]){40}$/.test(receiverAddress)) {
-            return res.send('Error: invalid receiver address');
+            return res.status(400).send('Error: invalid receiver address');
         }
 
         if (availableQueueNumbers.length === 0) {
@@ -45,7 +45,7 @@ app.post('/ask_money', async (req, res) => {
         }
 
         if(addresses[receiverAddress]) {
-            return res.send('Error: address has already received money');
+            return res.status(400).send('Error: address has already received money');
         }
         addresses[receiverAddress] = true;
 
@@ -60,11 +60,11 @@ app.post('/ask_money', async (req, res) => {
             res.send("success");
         } catch (err) {
             addresses[receiverAddress] = false;
-            res.status(500).send("error");
+            res.status(500).send("Error: transfer failed");
         }
     } catch (e) {
         console.error("Error in ask_money:", e);
-        res.status(500).send("error");
+        res.status(500).send("Error: unexpected error");
     }
 });
 
