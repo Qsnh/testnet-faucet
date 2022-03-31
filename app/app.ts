@@ -17,7 +17,7 @@ const app: express.Application = express();
 app.use(bodyParser.json());
 
 const corsOptions = {
-  origin: "*",
+  origin: '*',
   credentials: true, //access-control-allow-credentials:true
   optionSuccessStatus: 200,
 };
