@@ -22,12 +22,12 @@ app.use(cors(corsOptions));
 
 const SECRET_KEYS = process.env.SECRET_KEYS!.split(',');
 const QUEUES_NUMBER = SECRET_KEYS.length;
-
 const network = process.env.NETWORK || "goerli";
 const sendMoneyQueue: [string, any, any][][] = Array.from(
   Array(QUEUES_NUMBER),
   () => []
 );
+
 
 let currentQueueNumber = 0;
 // We assume that queues are ok at the beginning.
@@ -38,7 +38,10 @@ let sinceId: string;
 
 // set initial sinceId value when the server starts to run: get the last @zkSync 'mention' tweet id
 async function setSinceId() {
-    const url = `https://api.twitter.com/2/users/${ZKSYNC_ID}/mentions?max_results=5`; 
+    // last tweet for the previous  minute
+    const unixTime = Math.floor(Date.now()) - 60000  
+    const time = new Date(unixTime).toUTCString()
+    const url = `https://api.twitter.com/2/users/${ZKSYNC_ID}/mentions?start_time=${time}`; 
     const options = {
         method: "GET",
         headers: {
@@ -49,7 +52,52 @@ async function setSinceId() {
     const response = await fetch(url, options);
     const parsed = JSON.parse(await response.text());
     const meta = parsed["meta"];
-    sinceId = meta["newest_id"]; 
+    if(meta['result_count'] == 0){
+        await sleep(60000)
+        await setSinceId()
+    }else{
+        sinceId = meta["newest_id"]; 
+    }
+}
+async function getTweets(): Promise<void> {
+    if (sinceId == null){
+        await setSinceId()
+    }
+    const url = `https://api.twitter.com/2/users/${ZKSYNC_ID}/mentions?since_id=${sinceId}`;
+    const options = {
+    method: "GET",
+    headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${BEARER_TOKEN}`,
+    },
+  };
+  const response = await fetch(url, options);
+  const parsed = JSON.parse(await response.text());
+
+  const meta = parsed["meta"];
+  if (meta["result_count"] !== 0) {
+    sinceId = meta["newest_id"];
+    const posts = parsed["data"];
+    for (let post of posts) {
+      const text = post["text"];
+      const isValid = await validateTweet(text);
+      if (isValid) {
+        const address = text.match(/0x([0-9a-fA-F]){40}/)[0];
+        await askMoney(address);
+      }
+    }
+  }
+  setTimeout(getTweets, pollingInterval);
+}
+
+function validateTweet(content): Boolean {
+  const pattern = new RegExp(
+    "I am claiming free tokens from @zksync's faucet! 🟣\nMy Address: 0x([0-9a-fA-F]){40}  https://t.co/doeYbyditA"
+  );
+  if (!pattern.test(content)) {
+    return false;
+  }
+  return true;
 }
 
 async function askMoney(receiverAddress: string): Promise<void> {
@@ -62,10 +110,10 @@ async function askMoney(receiverAddress: string): Promise<void> {
         sendMoneyQueue[queueNum].push([receiverAddress, resolve, reject]);
         });
     } catch (err) {
-        console.log("Error: transfer failed");
+        console.error("Error: transfer failed");
     }
     } else {
-        console.log("faucet is empty");
+        console.error("faucet is empty");
     }
 }
 
@@ -201,47 +249,6 @@ async function startUpdatingAvailableQueues() {
     }
     await sleep(interval);
   }
-}
-
-async function getTweets(): Promise<void> {
-    if (sinceId == null){
-        await setSinceId()
-    }
-    const url = `https://api.twitter.com/2/users/${ZKSYNC_ID}/mentions?since_id=${sinceId}`;
-    const options = {
-    method: "GET",
-    headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${BEARER_TOKEN}`,
-    },
-  };
-  const response = await fetch(url, options);
-  const parsed = JSON.parse(await response.text());
-
-  const meta = parsed["meta"];
-  if (meta["result_count"] !== 0) {
-    sinceId = meta["newest_id"];
-    const posts = parsed["data"];
-    for (let post of posts) {
-      const text = post["text"];
-      const isValid = await validateTweet(text);
-      if (isValid) {
-        const address = text.match(/0x([0-9a-fA-F]){40}/)[0];
-        await askMoney(address);
-      }
-    }
-  }
-  setTimeout(getTweets, pollingInterval);
-}
-
-function validateTweet(content): Boolean {
-  const pattern = new RegExp(
-    "I am claiming free tokens from @zksync's faucet! 🟣\nMy Address: 0x([0-9a-fA-F]){40}  https://t.co/doeYbyditA"
-  );
-  if (!pattern.test(content)) {
-    return false;
-  }
-  return true;
 }
 
 // Start API
