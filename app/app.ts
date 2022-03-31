@@ -11,25 +11,25 @@ import providerConfig from '../faucet-utility/src/provider-config';
 const port = 2880;
 const pollingInterval = 1000; // make request every 1 sec
 const ZKSYNC_ID = "1191702416971968512"; // it`s id of @zksync official twitter account
-const BEARER_TOKEN = "";
+const TWEET_CONTENT_LINK = "https://v2.zksync.io/";
+const BEARER_TOKEN = process.env.BEARER_TOKEN;
 const app: express.Application = express();
 app.use(bodyParser.json());
 
 const corsOptions = {
-  origin: '*',
+  origin: "*",
   credentials: true, //access-control-allow-credentials:true
   optionSuccessStatus: 200,
 };
 app.use(cors(corsOptions));
 
-const SECRET_KEYS = process.env.SECRET_KEYS!.split(',');
+const SECRET_KEYS = process.env.SECRET_KEYS!.split(",");
 const QUEUES_NUMBER = SECRET_KEYS.length;
-const network = process.env.NETWORK || "goerli";
 const sendMoneyQueue: [string, any, any][][] = Array.from(
   Array(QUEUES_NUMBER),
   () => []
 );
-
+const network = process.env.NETWORK || "goerli";
 
 let currentQueueNumber = 0;
 // We assume that queues are ok at the beginning.
@@ -40,97 +40,115 @@ let sinceId: string;
 
 // set initial sinceId value when the server starts to run: get the last @zkSync 'mention' tweet id
 async function setSinceId() {
-    while (true){
-        const interval = 60000;
-        // the oldest tweet for the previous minute
-        const unixTime = Math.floor(Date.now()) - 60000  
-        const time = new Date(unixTime).toISOString()
-        console.log(time);
-        const url = `https://api.twitter.com/2/users/${ZKSYNC_ID}/mentions?start_time=${time}`;
-        const options = {
-            method: "GET",
-            headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${BEARER_TOKEN}`,
-            },
-        };
-        const response = await fetch(url, options);
-        const parsed = JSON.parse(await response.text());
-        const meta = parsed["meta"];
-        console.log(meta);
-        
-        if (meta["result_count"] == 0) {
-            await sleep(interval);
-        } else {
-            // mentions?since_id=meta["newest_id"]  query returns all tweets after meta["newest_id"] tweet, but we need  meta["newest_id"] to be included
-            // so we need to set sinceId to meta["newest_id"] - 1
-            // meta["newest_id"] is the 19 digits number, so we make the following manipulation to get meta["newest_id"] - 1
-            let newestId = meta["newest_id"];
-            let pref = newestId.slice(0,-2)
-            let suff = newestId.slice(-2)
-            suff--;
-            sinceId = pref+ suff
-            console.log(sinceId);
-            break;
-        }
-    }
-}
-async function getTweets(): Promise<void> {
-    if (sinceId == null){
-        await setSinceId()
-    }
-    const url = `https://api.twitter.com/2/users/${ZKSYNC_ID}/mentions?since_id=${sinceId}`;
+  while (true) {
+    const interval = 60000;
+    // the oldest tweet for the previous minute
+    const unixTime = Math.floor(Date.now()) - 60000;
+    const time = new Date(unixTime).toISOString();
+    console.log(time);
+    const url = `https://api.twitter.com/2/users/${ZKSYNC_ID}/mentions?start_time=${time}`;
     const options = {
-    method: "GET",
-    headers: {
+      method: "GET",
+      headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${BEARER_TOKEN}`,
+      },
+    };
+    const response = await fetch(url, options);
+    const parsed = JSON.parse(await response.text());
+    const meta = parsed["meta"];
+    console.log(meta);
+
+    if (meta["result_count"] == 0) {
+      await sleep(interval);
+    } else {
+      // mentions?since_id=meta["newest_id"]  query returns all tweets after meta["newest_id"] tweet, but we need  meta["newest_id"] to be included
+      // so we need to set sinceId to meta["newest_id"] - 1
+      // meta["newest_id"] is the 19 digits number, so we make the following manipulation to get meta["newest_id"] - 1
+      let newestId = meta["newest_id"];
+      let pref = newestId.slice(0, -2);
+      let suff = newestId.slice(-2);
+      suff--;
+      sinceId = pref + suff;
+      console.log(sinceId);
+      break;
+    }
+  }
+}
+
+async function getTweets(): Promise<void> {
+  if (sinceId == null) {
+    await setSinceId();
+  }
+
+  while (true) {
+    const url = `https://api.twitter.com/2/users/${ZKSYNC_ID}/mentions?since_id=${sinceId}`;
+    const options = {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${BEARER_TOKEN}`,
+      },
+    };
+    const response = await fetch(url, options);
+    const parsed = JSON.parse(await response.text());
+    const meta = parsed["meta"];
+    if (meta["result_count"] !== 0) {
+      sinceId = meta["newest_id"];
+      const posts = parsed["data"];
+      for (let post of posts) {
+        const text = post["text"];
+        const id = post["id"];
+        const isValid = await validateTweet(text, id);
+        if (isValid) {
+          const address = text.match(/0x([0-9a-fA-F]){40}/)[0];
+          await askMoney(address);
+        }
+      }
+    }
+    await sleep(pollingInterval);
+  }
+}
+
+async function validateTweet(content: string, id: string): Promise<Boolean> {
+  const url = `https://api.twitter.com/2/tweets?ids=${id}&tweet.fields=entities`;
+  const options = {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${BEARER_TOKEN}`,
     },
   };
   const response = await fetch(url, options);
   const parsed = JSON.parse(await response.text());
+  const expandedUrl = parsed["entities"]["urls"]["expanded_url"];
+  const shortenLink = parsed["entities"]["urls"]["url"];
 
-  const meta = parsed["meta"];
-  if (meta["result_count"] !== 0) {
-    sinceId = meta["newest_id"];
-    const posts = parsed["data"];
-    for (let post of posts) {
-      const text = post["text"];
-      const isValid = await validateTweet(text);
-      if (isValid) {
-        const address = text.match(/0x([0-9a-fA-F]){40}/)[0];
-        await askMoney(address);
-      }
-    }
-  }
-  setTimeout(getTweets, pollingInterval);
-}
-
-function validateTweet(content): Boolean {
   const pattern = new RegExp(
-    "I am claiming free tokens from @zksync's faucet! 🟣\nMy Address: 0x([0-9a-fA-F]){40}  https://t.co/doeYbyditA"
+    `I am claiming free tokens from @zksync's faucet! 🟣\nMy Address: 0x([0-9a-fA-F]){40}  ${shortenLink}`
   );
-  if (!pattern.test(content)) {
+  if (expandedUrl != TWEET_CONTENT_LINK || !pattern.test(content)) {
     return false;
   }
   return true;
 }
 
 async function askMoney(receiverAddress: string): Promise<void> {
-    if (availableQueueNumbers.length === 0) {
+  if (availableQueueNumbers.length === 0) {
     const queueNum =
-        availableQueueNumbers[currentQueueNumber % availableQueueNumbers.length];
+      availableQueueNumbers[currentQueueNumber % availableQueueNumbers.length];
     currentQueueNumber += 1;
     try {
-        await new Promise((resolve, reject) => {
+      await new Promise((resolve, reject) => {
         sendMoneyQueue[queueNum].push([receiverAddress, resolve, reject]);
-        });
+      });
+      console.log(`${receiverAddress} account receive money successfully`);
     } catch (err) {
-        console.error("Error: transfer failed");
+      console.error("Error: transfer failed");
     }
-    } else {
-        console.error("faucet is empty");
-    }
+  } else {
+    console.error("faucet is empty");
+  }
 }
 
 const availableTokens: any[] = tokens[network].map((token: any) => {
@@ -150,7 +168,7 @@ app.get("/available_tokens", async (req, res) => {
 
 async function startSendingMoneyFragile(queueNumber: number): Promise<void> {
   const provider = new zksync.Provider(
-    process.env.ZKS_PROVIDER_URL || "https://stage2-api.zksync.dev/web3"
+    process.env.ZKS_PROVIDER_URL || providerConfig.stage2
   );
   const wallet = new zksync.Wallet(SECRET_KEYS[queueNumber], provider);
 
@@ -205,7 +223,7 @@ async function startSendingMoneyFragile(queueNumber: number): Promise<void> {
   }
 }
 
-async function startSendingMoney(queueNumber: number): Promise<void>  {
+async function startSendingMoney(queueNumber: number): Promise<void> {
   let delay = 1000;
   let startTime;
   while (true) {
@@ -233,7 +251,7 @@ async function startUpdatingAvailableQueues() {
   while (true) {
     try {
       const provider = new zksync.Provider(
-        process.env.ZKS_PROVIDER_URL || "https://stage2-api.zksync.dev/web3"
+        process.env.ZKS_PROVIDER_URL || providerConfig.stage2
       );
       let newAvailableQueues = [];
       for (let queueNumber = 0; queueNumber < QUEUES_NUMBER; ++queueNumber) {
@@ -276,7 +294,7 @@ for (let i = 0; i < QUEUES_NUMBER; i++) {
   startSendingMoney(i);
 }
 startUpdatingAvailableQueues();
-setTimeout(getTweets, pollingInterval);
+getTweets();
 
 process.stdin.resume(); // Program will not close instantly
 
