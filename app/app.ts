@@ -1,10 +1,10 @@
-import express from "express";
-import bodyParser from "body-parser";
-import * as zksync from "zksync-web3";
-import { backOff } from "exponential-backoff";
-import cors from "cors";
-import { sleep } from "zksync-web3/build/utils";
-import tokens from "../tokens-config";
+import express from 'express';
+import bodyParser from 'body-parser';
+import * as zksync from 'zksync-web3';
+import { backOff } from 'exponential-backoff';
+import cors from 'cors';
+import { sleep } from 'zksync-web3/build/utils';
+import tokens from '../tokens-config';
 
 const port = 2880;
 const pollingInterval = 1000; // make request every 1 sec
@@ -14,13 +14,13 @@ const app: express.Application = express();
 app.use(bodyParser.json());
 
 const corsOptions = {
-  origin: "*",
+  origin: '*',
   credentials: true, //access-control-allow-credentials:true
   optionSuccessStatus: 200,
 };
 app.use(cors(corsOptions));
 
-const SECRET_KEYS = process.env.SECRET_KEYS!.split(",");
+const SECRET_KEYS = process.env.SECRET_KEYS!.split(',');
 const QUEUES_NUMBER = SECRET_KEYS.length;
 
 const network = process.env.NETWORK || "goerli";
@@ -33,10 +33,10 @@ let currentQueueNumber = 0;
 // We assume that queues are ok at the beginning.
 let availableQueueNumbers = [...Array(QUEUES_NUMBER).keys()];
 
-// get tweets that are greater that sinceId
+// get tweets that are greater than sinceId
 let sinceId: string;
 
-// set initial sinceId value when the server starts to run:  get the last @zkSync 'mention' tweet id
+// set initial sinceId value when the server starts to run: get the last @zkSync 'mention' tweet id
 async function setSinceId() {
     const url = `https://api.twitter.com/2/users/${ZKSYNC_ID}/mentions?max_results=5`; 
     const options = {
@@ -62,10 +62,10 @@ async function askMoney(receiverAddress: string): Promise<void> {
         sendMoneyQueue[queueNum].push([receiverAddress, resolve, reject]);
         });
     } catch (err) {
-        throw new Error("Error: transfer failed");
+        console.log("Error: transfer failed");
     }
     } else {
-    throw new Error("faucet is empty");
+        console.log("faucet is empty");
     }
 }
 
