@@ -4,7 +4,9 @@ import * as zksync from 'zksync-web3';
 import { backOff } from 'exponential-backoff';
 import cors from 'cors';
 import { sleep } from 'zksync-web3/build/utils';
+import fetch from 'node-fetch';
 import tokens from '../tokens-config';
+import providerConfig from '../faucet-utility/src/provider-config';
 
 const port = 2880;
 const pollingInterval = 1000; // make request every 1 sec
