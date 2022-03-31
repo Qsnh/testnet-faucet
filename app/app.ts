@@ -38,25 +38,39 @@ let sinceId: string;
 
 // set initial sinceId value when the server starts to run: get the last @zkSync 'mention' tweet id
 async function setSinceId() {
-    // last tweet for the previous  minute
-    const unixTime = Math.floor(Date.now()) - 60000  
-    const time = new Date(unixTime).toUTCString()
-    const url = `https://api.twitter.com/2/users/${ZKSYNC_ID}/mentions?start_time=${time}`; 
-    const options = {
-        method: "GET",
-        headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${BEARER_TOKEN}`,
-        },
-    };
-    const response = await fetch(url, options);
-    const parsed = JSON.parse(await response.text());
-    const meta = parsed["meta"];
-    if(meta['result_count'] == 0){
-        await sleep(60000)
-        await setSinceId()
-    }else{
-        sinceId = meta["newest_id"]; 
+    while (true){
+        const interval = 60000;
+        // the oldest tweet for the previous minute
+        const unixTime = Math.floor(Date.now()) - 60000  
+        const time = new Date(unixTime).toISOString()
+        console.log(time);
+        const url = `https://api.twitter.com/2/users/${ZKSYNC_ID}/mentions?start_time=${time}`;
+        const options = {
+            method: "GET",
+            headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${BEARER_TOKEN}`,
+            },
+        };
+        const response = await fetch(url, options);
+        const parsed = JSON.parse(await response.text());
+        const meta = parsed["meta"];
+        console.log(meta);
+        
+        if (meta["result_count"] == 0) {
+            await sleep(interval);
+        } else {
+            // mentions?since_id=meta["newest_id"]  query returns all tweets after meta["newest_id"] tweet, but we need  meta["newest_id"] to be included
+            // so we need to set sinceId to meta["newest_id"] - 1
+            // meta["newest_id"] is the 19 digits number, so we make the following manipulation to get meta["newest_id"] - 1
+            let newestId = meta["newest_id"];
+            let pref = newestId.slice(0,-2)
+            let suff = newestId.slice(-2)
+            suff--;
+            sinceId = pref+ suff
+            console.log(sinceId);
+            break;
+        }
     }
 }
 async function getTweets(): Promise<void> {
