@@ -9,7 +9,6 @@ import tokens from '../tokens-config';
 import providerConfig from '../faucet-utility/src/provider-config';
 
 const port = 2880;
-const pollingInterval = 1000; // make request every 1 sec
 const ZKSYNC_ID = "1191702416971968512"; // it`s id of @zksync official twitter account
 const TWEET_CONTENT_LINK = "https://v2.zksync.io/";
 const BEARER_TOKEN = process.env.BEARER_TOKEN;
@@ -35,13 +34,15 @@ let currentQueueNumber = 0;
 // We assume that queues are ok at the beginning.
 let availableQueueNumbers = [...Array(QUEUES_NUMBER).keys()];
 
+const addresses = {};
+
 // get tweets that are greater than sinceId
 let sinceId: string;
 
 // set initial sinceId value when the server starts to run: get the last @zkSync 'mention' tweet id
 async function setSinceId() {
   while (true) {
-    const interval = 60000;
+    const interval = 30000;
     // the oldest tweet for the previous minute
     const unixTime = Math.floor(Date.now()) - 60000;
     const time = new Date(unixTime).toISOString();
@@ -77,10 +78,10 @@ async function setSinceId() {
 }
 
 async function getTweets(): Promise<void> {
+    const pollingInterval = 1000; // make request every 1 sec
   if (sinceId == null) {
     await setSinceId();
   }
-
   while (true) {
     const url = `https://api.twitter.com/2/users/${ZKSYNC_ID}/mentions?since_id=${sinceId}`;
     const options = {
@@ -111,26 +112,27 @@ async function getTweets(): Promise<void> {
 }
 
 async function validateTweet(content: string, id: string): Promise<Boolean> {
-  const url = `https://api.twitter.com/2/tweets?ids=${id}&tweet.fields=entities`;
-  const options = {
-    method: "GET",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${BEARER_TOKEN}`,
-    },
-  };
-  const response = await fetch(url, options);
-  const parsed = JSON.parse(await response.text());
-  const expandedUrl = parsed["entities"]["urls"]["expanded_url"];
-  const shortenLink = parsed["entities"]["urls"]["url"];
-
-  const pattern = new RegExp(
-    `I am claiming free tokens from @zksync's faucet! 🟣\nMy Address: 0x([0-9a-fA-F]){40}  ${shortenLink}`
-  );
-  if (expandedUrl != TWEET_CONTENT_LINK || !pattern.test(content)) {
-    return false;
-  }
-  return true;
+    const url = `https://api.twitter.com/2/tweets?ids=${id}&tweet.fields=entities`;
+    const options = {
+        method: "GET",
+        headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${BEARER_TOKEN}`,
+        },
+    };
+    const response = await fetch(url,options)
+    const text =JSON.parse(await response.text());
+    
+    const urls = text["data"][0]["entities"]["urls"]
+    const expandedUrl = urls[0]["expanded_url"]; 
+    const shortenLink = urls[0]["url"]; 
+    const pattern = new RegExp(
+        `I am claiming free tokens from @zksync's faucet! 🟣\nMy Address: 0x([0-9a-fA-F]){40}  ${shortenLink}`
+    );
+    if (expandedUrl != TWEET_CONTENT_LINK || !pattern.test(content)) {
+        return false;
+    }
+    return true;
 }
 
 async function askMoney(receiverAddress: string): Promise<void> {
@@ -150,6 +152,46 @@ async function askMoney(receiverAddress: string): Promise<void> {
     console.error("faucet is empty");
   }
 }
+
+app.post('/ask_money', async (req, res) => {
+    try {
+        const receiverAddress = req.body['receiverAddress']?.trim()?.toLowerCase();
+
+        if (receiverAddress == undefined) {
+            return res.status(400).send('Error: missing receiver address');
+        }
+
+        if (! /^0x([0-9a-fA-F]){40}$/.test(receiverAddress)) {
+            return res.status(400).send('Error: invalid receiver address');
+        }
+
+        if (availableQueueNumbers.length === 0) {
+            return res.status(500).send("Error: faucet is empty");
+        }
+
+        if(addresses[receiverAddress]) {
+            return res.status(400).send('Error: address has already received money');
+        }
+        addresses[receiverAddress] = true;
+
+        const queueNum = availableQueueNumbers[currentQueueNumber % availableQueueNumbers.length];
+        
+        currentQueueNumber += 1;
+
+        try {
+            await new Promise((resolve, reject) => {
+                sendMoneyQueue[queueNum].push([receiverAddress, resolve, reject])
+            });
+            res.send("success");
+        } catch (err) {
+            addresses[receiverAddress] = false;
+            res.status(500).send("Error: transfer failed");
+        }
+    } catch (e) {
+        console.error("Error in ask_money:", e);
+        res.status(500).send("Error: unexpected error");
+    }
+});
 
 const availableTokens: any[] = tokens[network].map((token: any) => {
   return {
