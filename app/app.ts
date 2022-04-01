@@ -46,7 +46,6 @@ async function setSinceId() {
         // the oldest tweet for the previous minute
         const unixTime = Math.floor(Date.now()) - 60000;
         const time = new Date(unixTime).toISOString();
-        console.log(time);
         const url = `https://api.twitter.com/2/users/${ZKSYNC_ID}/mentions?start_time=${time}`;
         const options = {
             method: "GET",
@@ -58,7 +57,6 @@ async function setSinceId() {
         const response = await fetch(url, options);
         const parsed = JSON.parse(await response.text());
         const meta = parsed["meta"];
-        console.log(meta);
 
         if (meta["result_count"] == 0) {
             await sleep(interval);
@@ -71,7 +69,6 @@ async function setSinceId() {
             let suff = newestId.slice(-2);
             suff--;
             sinceId = pref + suff;
-            console.log(sinceId);
             break;
         }
     }
@@ -146,7 +143,7 @@ async function askMoney(receiverAddress: string): Promise<void> {
             });
             console.log(`${receiverAddress} account receive money successfully`);
         } catch (err) {
-            console.error("Error: transfer failed");
+            console.error(`Transfer failed ${err}`);
         }
     } else {
         console.error("faucet is empty");
