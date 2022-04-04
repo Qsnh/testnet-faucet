@@ -54,8 +54,7 @@ async function setSinceId() {
                 Authorization: `Bearer ${BEARER_TOKEN}`,
             },
         };
-        const response = await fetch(url, options);
-        const parsed = JSON.parse(await response.text());
+        const parsed = await parseResponce(url, options)
         const meta = parsed["meta"];
 
         if (meta["result_count"] == 0) {
@@ -88,8 +87,7 @@ async function getTweets(): Promise<void> {
                 Authorization: `Bearer ${BEARER_TOKEN}`,
             },
         };
-        const response = await fetch(url, options);
-        const parsed = JSON.parse(await response.text());
+        const parsed = await parseResponce(url, options)
         const meta = parsed["meta"];
         if (meta["result_count"] !== 0) {
             sinceId = meta["newest_id"];
@@ -106,6 +104,11 @@ async function getTweets(): Promise<void> {
         }
         await sleep(pollingInterval);
     }
+}
+
+async function parseResponce(url: string, options) {
+    const response = await fetch(url, options);
+    return JSON.parse(await response.text());
 }
 
 async function validateTweet(content: string, id: string): Promise<Boolean> {
